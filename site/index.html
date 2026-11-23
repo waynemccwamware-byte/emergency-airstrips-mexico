@@ -1,5 +1,11 @@
 <!DOCTYPE html>
-<!-- Planning Emergency Airstrips in Mexico v0.1 (23-Nov-2026): companion to Mexican Airstrips for your EFB and Sim (Wayne, from its
+<!-- Planning Emergency Airstrips in Mexico v0.2 (23-Nov-2026, Wayne's first feedback): Satellite is the default map (a picked
+     layer is still remembered); the list can be hidden so the map takes the full width ("Hide list", remembered); "Open to third
+     parties" filter (AFAC TIPO DE SERVICIO "SERVICIO PARTICULAR Y A TERCEROS"); corridor edges drawn as a dashed outline (per-leg
+     capsules merged with polygon-clipping, vendored from Mexican Airstrips); ICAO airports no longer assumed paved or permitted:
+     longest open runway and surface from OurAirports (site/data/mx-icao-runways.json), "permit" = on Mexico's official airport
+     list (SAM), and they go through every filter (MMMG has no runway data and isn't on the list).
+     v0.1 (23-Nov-2026): companion to Mexican Airstrips for your EFB and Sim (Wayne, from its
      Nearby airstrips pop-up). Opens on a map of all of Mexico with a dot at every AFAC aerodrome (and the ICAO airports); a route
      typed as waypoints (ICAO airports, VOR/NDB idents, X-prefixed AFAC designators, coordinates) is drawn and the map zooms to it;
      the airstrips within 10/25/50 NM of the route are listed in route order with distance along and off course, filtered by runway
@@ -23,6 +29,8 @@
 <!-- Leaflet 1.9.4 (pinned, jsDelivr), App Conventions §7 -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- polygon-clipping 0.15.7 (MIT), vendored from Mexican Airstrips (site/vendor): merges the corridor outline -->
+<script src="vendor/polygon-clipping.umd.min.js"></script>
 <style>
   :root{
     --bg-deep:#10141a; --bg-panel:#1b222c; --bezel:#2a323f; --bezel-hi:#3a4454;
@@ -100,6 +108,10 @@
   .tag{ white-space:nowrap; display:inline-block; font:500 10px 'IBM Plex Mono', monospace; border-radius:3px; padding:0 4px; margin-left:4px; border:1px solid; }
   .tag.ok{ color:var(--teal); border-color:var(--teal); }
   .tag.no{ color:var(--alert); border-color:var(--alert); }
+  .body2.nolist{ grid-template-columns:minmax(0,1fr); }
+  .body2.nolist .list{ display:none; }
+  .ctrls .btn.small{ padding:5px 10px; font-size:12.5px; margin-left:auto; }
+  .tag.tp{ color:#7fd6ee; border-color:#7fd6ee; }
   .gaprow{ padding:8px 12px; border-bottom:1px solid var(--bezel); font-size:12px; color:var(--alert); background:rgba(224,112,95,.07); }
   .foot2{ font-size:11px; color:var(--text-muted); padding:8px 2px 0; line-height:1.5; }
   .legend{ display:inline-flex; gap:10px; flex-wrap:wrap; }
@@ -199,7 +211,7 @@
 <div class="rig">
   <div class="title-row">
     <h1>Planning Emergency Airstrips in Mexico</h1>
-    <span class="ver mono">v0.1</span>
+    <span class="ver mono">v0.2</span>
   </div>
   <p class="purpose-line"><span class="purpose-label">Purpose:</span> Enter a route across Mexico and see the airstrips along it, filtered by runway length, surface and permit, so you know your options before you go.</p>
 
@@ -224,11 +236,13 @@
       <label>Runway at least <select id="minLen"><option value="0">any</option><option value="610">2,000 ft</option><option value="914">3,000 ft</option><option value="1219">4,000 ft</option></select></label>
       <label><input type="checkbox" id="paved"> Paved only</label>
       <label><input type="checkbox" id="cur"> Current permit only</label>
+      <label><input type="checkbox" id="terc"> Open to third parties</label>
       <label><input type="checkbox" id="icao" checked> ICAO airports</label>
+      <button class="btn small" id="listBtn" type="button" aria-controls="list">Hide list</button>
     </div>
     <div class="body2"><div id="map"></div><div class="list" id="list"></div></div>
-    <div class="foot2"><span class="legend"><span><span class="dot" style="background:var(--amber)"></span>route waypoint</span><span><span class="dot" style="background:#b9c2cf"></span>paved</span><span><span class="dot" style="background:#c08a52"></span>dirt / unpaved</span><span><span class="dot" style="background:#3fa7a0"></span>water</span><span><span class="dot" style="background:#6b7380"></span>surface not listed</span><span><span class="dot" style="background:#7fd6ee;border-radius:2px"></span>ICAO airport</span><span>hollow = permit not current</span><span><span style="display:inline-block;width:16px;border-top:3px solid #e0705f;vertical-align:3px;margin-right:4px"></span>longest stretch with nothing in the corridor</span></span><br>
-    Distance along the route and off course (left or right of the course line) in NM. Airstrips, elevations and lengths as AFAC's list gives them (<span id="afacEd">current</span> edition); AFAC's figures are sometimes wrong, and an airstrip on this list is not a known-safe landing spot. To draw one for ForeFlight, Garmin Pilot or X-Plane, look it up in <a href="https://airfield-kml-builder.netlify.app/" target="_blank" rel="noopener">Mexican Airstrips for your EFB and Sim</a>.</div>
+    <div class="foot2"><span class="legend"><span><span class="dot" style="background:var(--amber)"></span>route waypoint</span><span><span class="dot" style="background:#b9c2cf"></span>paved</span><span><span class="dot" style="background:#c08a52"></span>dirt / unpaved</span><span><span class="dot" style="background:#3fa7a0"></span>water</span><span><span class="dot" style="background:#6b7380"></span>surface not listed</span><span><span class="dot" style="background:#7fd6ee;border-radius:2px"></span>ICAO airport</span><span>hollow = permit not current (ICAO: not on Mexico's official airport list)</span><span><span style="display:inline-block;width:16px;border-top:2px dashed #f5a623;vertical-align:3px;margin-right:4px"></span>corridor edge</span><span><span style="display:inline-block;width:16px;border-top:3px solid #e0705f;vertical-align:3px;margin-right:4px"></span>longest stretch with nothing in the corridor</span></span><br>
+    Distance along the route and off course (left or right of the course line) in NM. "Open to third parties" is AFAC's service type "particular y a terceros" (private-use permits are "particular" only); ICAO airports pass it, and "Current permit only", when they're on Mexico's official airport list. ICAO runway length and surface come from OurAirports. Airstrips, elevations and lengths as AFAC's list gives them (<span id="afacEd">current</span> edition); AFAC's figures are sometimes wrong, and an airstrip on this list is not a known-safe landing spot. To draw one for ForeFlight, Garmin Pilot or X-Plane, look it up in <a href="https://airfield-kml-builder.netlify.app/" target="_blank" rel="noopener">Mexican Airstrips for your EFB and Sim</a>.</div>
   </div>
 </section>
 
@@ -257,6 +271,9 @@
   const pad2 = v => /^\d$/.test(v) ? '0' + v : v;
   const surfCat = s => { s = (s || '').toUpperCase(); if (!s) return null; if (/ASFALT|PAVIMENTO|CONCRET|CEMENTO/.test(s)) return 'paved'; if (/AGUA|ACUAT/.test(s)) return 'water'; return 'dirt'; };
   const KEY = 'mxEmergency.v1';
+  // v0.2: ICAO airports carry OurAirports' surface code (ASP, CON, PEM, TURF, GRVL, UNK…); none = no runway data
+  const surfOf = x => x.kind === 'icao' ? (!x.surfCode || /^UNK/.test(x.surfCode) ? null : /ASP|CON|PEM|BIT|PAVED/.test(x.surfCode) ? 'paved' : /WAT/.test(x.surfCode) ? 'water' : 'dirt') : surfCat(x.surf);
+  const okOf = x => x.kind === 'icao' ? !!x.sam : x.cur;
   // AFAC permit status in English (as in Mexican Airstrips' record translation)
   const permitEn = st => { const t = (st || '').toUpperCase();
     return /^VIGENTE/.test(t) ? 'current' : /INOPERATIVO/.test(t) ? 'not operating' : /CERRADO/.test(t) ? 'closed by NOTAM' : /TRAMITE/.test(t) ? 'in process' : 'not current'; };
@@ -330,8 +347,8 @@
     'Map': L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors' }),
   };
   const S = (() => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e){ return {}; } })();
-  const save = () => { try { localStorage.setItem(KEY, JSON.stringify({ base:S.base, route:$('route').value, cor:corridor, minLen:$('minLen').value, paved:$('paved').checked, cur:$('cur').checked, icao:$('icao').checked })); } catch (e){} };
-  const map = L.map('map', { preferCanvas:true, layers:[base[S.base] || base.Topo] }).fitBounds(MEXICO);
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify({ base:S.base, route:$('route').value, cor:corridor, minLen:$('minLen').value, paved:$('paved').checked, cur:$('cur').checked, terc:$('terc').checked, icao:$('icao').checked, noList:!!S.noList })); } catch (e){} };
+  const map = L.map('map', { preferCanvas:true, layers:[base[S.base] || base.Satellite] }).fitBounds(MEXICO);
   L.control.layers(base, null, { position:'topright' }).addTo(map);
   L.control.scale({ imperial:true, metric:false, position:'topleft' }).addTo(map);
   map.on('baselayerchange', e => { S.base = e.name; save(); });
@@ -360,22 +377,26 @@
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && isBig) setBig(false); });
 
   const dotLayer = L.layerGroup().addTo(map), labLayer = L.layerGroup().addTo(map), routeLayer = L.layerGroup().addTo(map);
-  const colorOf = x => x.kind === 'icao' ? '#7fd6ee' : ({ paved:'#b9c2cf', water:'#3fa7a0', dirt:'#c08a52' }[surfCat(x.surf)] || '#6b7380');
+  const colorOf = x => x.kind === 'icao' ? '#7fd6ee' : ({ paved:'#b9c2cf', water:'#3fa7a0', dirt:'#c08a52' }[surfOf(x)] || '#6b7380');
   const icon = (code, cls, style, sz) => L.divIcon({ className:'nr-m ' + cls, iconSize:[sz, sz], iconAnchor:[sz / 2, sz / 2], html:`<i style="${style}"></i><b>${esc(code)}</b>` });
   function passes(x){
-    if (x.kind === 'icao') return $('icao').checked;
+    if (x.kind === 'icao' && !$('icao').checked) return false;
     const min = +$('minLen').value;
-    if (min && (x.len || 0) < min) return false;
-    if ($('paved').checked && surfCat(x.surf) !== 'paved') return false;
-    if ($('cur').checked && !x.cur) return false;
+    if (min && (x.len || 0) < min) return false;   // metres for both kinds
+    if ($('paved').checked && surfOf(x) !== 'paved') return false;
+    if ($('cur').checked && !okOf(x)) return false;
+    if ($('terc').checked && !(x.kind === 'icao' ? x.sam : x.terc)) return false;
     return true;
   }
+  const rwyText = x => (x.rwy ? 'RWY ' + x.rwy.split('/').map(pad2).join('/') : 'RWY —') + ' · ' + (x.len ? ft(x.len) + ' ft' + (surfOf(x) ? ' ' + surfOf(x) : '') : 'length —');
+  const tagsOf = x => x.kind === 'icao'
+    ? (x.sam ? '<span class="tag ok">on official airport list</span>' : '<span class="tag no">not on official airport list</span>')
+    : (x.cur ? '<span class="tag ok">permit current</span>' : `<span class="tag no">${esc('permit ' + permitEn(x.status))}</span>`) + (x.terc ? '<span class="tag tp">third-party</span>' : '');
   function info(x){
-    if (x.kind === 'icao') return `<span class="code" style="color:#7fd6ee">${esc(x.code)}</span> ${esc(title(x.name))}<br><span class="sub">ICAO airport</span>`;
-    const rw = x.rwy ? 'RWY ' + x.rwy.split('/').map(pad2).join('/') : 'RWY —';
+    if (x.kind === 'icao') return `<span class="code" style="color:#7fd6ee">${esc(x.code)}</span> ${esc(title(x.name))}<br><span class="sub">ICAO airport · ${esc(rwyText(x))}</span><br>${tagsOf(x)}`;
     return `${x.des ? `<span class="code">${esc(x.des)}</span> ` : ''}${esc(title(x.name))}${x.des ? '' : ' <span class="sub">(no AFAC designator)</span>'}`
-      + `<br><span class="sub">${esc(title([x.muni, x.state].filter(Boolean).join(', ')))}<br>${x.elev != null ? ft(x.elev) + ' ft' : 'elev —'} · ${rw} · ${x.len ? ft(x.len) + ' ft' : 'length —'}${surfCat(x.surf) ? ' ' + surfCat(x.surf) : ''}</span>`
-      + `<br>${x.cur ? '<span class="tag ok">permit current</span>' : `<span class="tag no">${esc('permit ' + permitEn(x.status))}</span>`}`;
+      + `<br><span class="sub">${esc(title([x.muni, x.state].filter(Boolean).join(', ')))}<br>${x.elev != null ? ft(x.elev) + ' ft' : 'elev —'} · ${esc(rwyText(x))}</span>`
+      + `<br>${tagsOf(x)}`;
   }
   function render(fit){
     dotLayer.clearLayers(); labLayer.clearLayers(); routeLayer.clearLayers();
@@ -385,7 +406,7 @@
     rows = [];
     all.forEach(x => {
       if (W.length < 2){
-        const c = colorOf(x), ok = x.kind === 'icao' || x.cur;
+        const c = colorOf(x), ok = okOf(x);
         L.circleMarker([x.lat, x.lon], { radius:x.kind === 'icao' ? 4.5 : 3.5, color:'#10141a', weight:1, fillColor:c, fillOpacity:ok ? 1 : .35 }).bindPopup(info(x)).addTo(dotLayer);
         return;
       }
@@ -408,12 +429,14 @@
     const marks = [0, total, ...rows.map(r => r.along), ...wpAlong].sort((a, b) => a - b);
     let gap = { len:0, a:0, b:0 };
     for (let i = 1; i < marks.length; i++) if (marks[i] - marks[i - 1] > gap.len) gap = { len:marks[i] - marks[i - 1], a:marks[i - 1], b:marks[i] };
+    drawCorridor();
     L.polyline(W.map(w => [w.lat, w.lon]), { color:'#10141a', weight:6, opacity:.5, interactive:false }).addTo(routeLayer);
     L.polyline(W.map(w => [w.lat, w.lon]), { color:'#f5a623', weight:3, interactive:false }).addTo(routeLayer);
     if (gap.len > 1) L.polyline(slice(gap.a, gap.b), { color:'#e0705f', weight:5, opacity:.9, interactive:false }).addTo(routeLayer);
     W.forEach(w => L.marker([w.lat, w.lon], { icon:icon(w.code, 'wp', 'background:#f5a623', 14), keyboard:false, zIndexOffset:1000, title:`${w.code}: ${w.type}` }).addTo(routeLayer));
     rows.forEach((x, i) => {
-      const c = colorOf(x), style = x.kind === 'icao' ? 'background:#7fd6ee;border-radius:2px' : x.cur ? `background:${c}` : `background:rgba(16,20,26,.55);border-color:${c}`;
+      const c = colorOf(x), sq = x.kind === 'icao' ? ';border-radius:2px' : '';
+      const style = (okOf(x) ? `background:${c}` : `background:rgba(16,20,26,.55);border-color:${c}`) + sq;
       const m = L.marker([x.lat, x.lon], { icon:icon(x.kind === 'icao' || x.des ? x.code : title(x.name), 'lab ' + (x.kind === 'icao' ? 'icao' : ''), style, 12), keyboard:false });
       m.on('click', () => select(i, true)); m.addTo(labLayer); x.m = m;
     });
@@ -421,15 +444,32 @@
       + (gap.len > 1 ? `<div class="gaprow">Longest stretch with nothing in the corridor: <b>${nm0(gap.len)} NM</b>, from ${nm0(gap.a)} to ${nm0(gap.b)} NM along the route (red on the map).</div>` : '')
       + (rows.length ? '' : '<div class="row note">Nothing in the corridor with these filters.</div>')
       + rows.map((x, i) => {
-        const sub = x.kind === 'icao' ? 'ICAO airport'
-          : [title([x.muni, x.state].filter(Boolean).join(', ')), x.elev != null ? ft(x.elev) + ' ft' : 'elev —', x.rwy ? 'RWY ' + x.rwy.split('/').map(pad2).join('/') : 'RWY —', x.len ? ft(x.len) + ' ft' + (surfCat(x.surf) ? ' ' + surfCat(x.surf) : '') : 'length —'].join(' · ');
-        const tag = x.kind === 'icao' ? '' : x.cur ? '<span class="tag ok">permit current</span>' : `<span class="tag no">${esc('permit ' + permitEn(x.status))}</span>`;
+        const sub = x.kind === 'icao' ? 'ICAO airport · ' + rwyText(x)
+          : [title([x.muni, x.state].filter(Boolean).join(', ')), x.elev != null ? ft(x.elev) + ' ft' : 'elev —', rwyText(x)].join(' · ');
+        const tag = tagsOf(x);
         const label = x.kind !== 'icao' && !x.des ? `${esc(title(x.name))} <span class="sub">(no AFAC designator)</span>` : `<span class="code ${x.kind === 'icao' ? 'icao' : ''}">${esc(x.code)}</span>${esc(title(x.name))}`;
         return `<div class="row" data-i="${i}"><div class="top"><span>${label}</span><span class="rng">${nm0(x.along)} NM · ${x.xt < 0.5 ? 'on course' : x.xt.toFixed(0) + ' NM ' + x.side}</span></div><div class="sub">${esc(sub)} ${tag}</div></div>`;
       }).join('');
     $('list').querySelectorAll('.row[data-i]').forEach(el => el.addEventListener('click', () => select(+el.dataset.i, false)));
     if (fit) fitRoute();
     declutter();
+  }
+  // v0.2: corridor edges, as in ForeFlight (Wayne): one capsule per leg (rounded ends), merged into one outline
+  function drawCorridor(){
+    if (typeof polygonClipping === 'undefined' || W.length < 2) return;
+    const caps = [];
+    for (let i = 0; i < W.length - 1; i++){
+      const a = W[i], b = W[i + 1], lat0 = (a.lat + b.lat) / 2, cx = Math.cos(lat0 * k);
+      const P = q => [(q.lon) * 60 * cx, q.lat * 60];          // NM in a local equirectangular frame
+      const A = P(a), B = P(b), ang = Math.atan2(B[1] - A[1], B[0] - A[0]), ring = [];
+      const arc = (C, from) => { for (let j = 0; j <= 24; j++){ const t = from + Math.PI * j / 24; ring.push([C[0] + corridor * Math.cos(t), C[1] + corridor * Math.sin(t)]); } };
+      arc(B, ang - Math.PI / 2); arc(A, ang + Math.PI / 2);
+      ring.push(ring[0]);
+      caps.push([ring.map(([x, y]) => [x / 60 / cx, y / 60])]);   // back to [lon, lat]
+    }
+    let merged;
+    try { merged = polygonClipping.union(...caps); } catch (e){ merged = caps; }
+    merged.forEach(poly => L.polygon(poly.map(r => r.map(([lo, la]) => [la, lo])), { color:'#f5a623', weight:2.2, dashArray:'7 5', opacity:1, fillColor:'#f5a623', fillOpacity:.06, interactive:false }).addTo(routeLayer));
   }
   function declutter(){ $('map').classList.toggle('far', rows.length > 25 && map.getZoom() < 8); }
   map.on('zoomend', declutter);
@@ -460,26 +500,35 @@
   document.querySelectorAll('#cor button').forEach(b => b.addEventListener('click', () => {
     corridor = +b.dataset.c; document.querySelectorAll('#cor button').forEach(x => x.classList.toggle('on', x === b)); save(); render(false);
   }));
-  ['minLen', 'paved', 'cur', 'icao'].forEach(id => $(id).addEventListener('change', () => { save(); render(false); }));
+  ['minLen', 'paved', 'cur', 'terc', 'icao'].forEach(id => $(id).addEventListener('change', () => { save(); render(false); }));
+  function setList(hidden){
+    S.noList = hidden; $('map').parentElement.classList.toggle('nolist', hidden);
+    $('listBtn').textContent = hidden ? 'Show list' : 'Hide list'; $('listBtn').setAttribute('aria-expanded', String(!hidden));
+    setTimeout(() => map.invalidateSize(), 60);
+  }
+  $('listBtn').addEventListener('click', () => { setList(!S.noList); save(); });
 
   // ---------- data ----------
   async function load(){
     if (S.cor) { corridor = +S.cor; document.querySelectorAll('#cor button').forEach(x => x.classList.toggle('on', +x.dataset.c === corridor)); }
     if (S.minLen) $('minLen').value = S.minLen;
-    $('paved').checked = !!S.paved; $('cur').checked = !!S.cur; if (S.icao === false) $('icao').checked = false;
+    $('paved').checked = !!S.paved; $('cur').checked = !!S.cur; $('terc').checked = !!S.terc; if (S.icao === false) $('icao').checked = false;
+    if (S.noList) setList(true);
     const q = new URLSearchParams(location.search).get('route');
     $('route').value = q != null ? q.replace(/[+,]/g, ' ') : (S.route != null ? S.route : 'KSDM MMSF MMLT');
     try {
-      const [afac, icao, nav, us] = await Promise.all([
+      const [afac, icao, nav, us, irw] = await Promise.all([
         fetch('/.netlify/functions/afac').then(r => r.json()),
         fetch('data/mx-icao.json').then(r => r.json()),
         fetch('data/navaids.json').then(r => r.json()),
         fetch('data/us-airports.json').then(r => r.json()),
+        fetch('data/mx-icao-runways.json').then(r => r.json()),
       ]);
       if (!afac.records) throw new Error(afac.error || 'no AFAC records');
       STR = afac.records.filter(r => r.lat != null).map(r => ({ kind:'afac', code:r.des || title(r.name), des:r.des, name:r.name, muni:r.muni, state:r.state, elev:r.elev_m, lat:r.lat, lon:r.lon,
-        rwy:(r.rwy || []).some(v => /^\d/.test(v)) ? r.rwy.join('/') : '', len:r.len_m, surf:r.surf, cur:/^VIGENTE/.test(r.status || ''), status:r.status }));
-      ICAO = icao.airports.map(a => ({ kind:'icao', code:a.code, name:a.name, lat:a.lat, lon:a.lon }));
+        rwy:(r.rwy || []).some(v => /^\d/.test(v)) ? r.rwy.join('/') : '', len:r.len_m, surf:r.surf, cur:/^VIGENTE/.test(r.status || ''), status:r.status, terc:/TERCEROS/i.test(r.svc || '') }));
+      ICAO = icao.airports.map(a => { const w = irw.runways[a.code];
+        return { kind:'icao', code:a.code, name:a.name, lat:a.lat, lon:a.lon, sam:!!a.sam, rwy:w && /^\d/.test(w[0]) ? w[0] : '', len:w && w[1] ? w[1] / 3.28084 : null, surfCode:w ? w[2] : '' }; });
       NAV = nav.navaids; US = us.airports;
       if (afac.source && afac.source.edition) $('afacEd').textContent = afac.source.edition;
       $('rStatus').textContent = '';
