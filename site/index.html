@@ -1,5 +1,11 @@
 <!DOCTYPE html>
-<!-- Planning Emergency Airstrips in Mexico v0.2 (23-Nov-2026, Wayne's first feedback): Satellite is the default map (a picked
+<!-- Planning Emergency Airstrips in Mexico v0.3 (23-Nov-2026): "Open in ForeFlight" (top right of section 2) builds a ForeFlight
+     content pack for the airstrips ticked in the list (tick boxes, all on for the current filters; ICAO airports are left out,
+     ForeFlight has them): route and corridor (dashed, thinner than in the app), <code>_EMG waypoints at each runway's midpoint,
+     runways (OpenStreetMap, else estimated from AFAC's figures), traffic patterns, visual approaches (off; caution to turn on,
+     terrain check as in Mexican Airstrips). site/ff.js; functions pack.js, osm.js, terrain.js and vendor/wmm.js copied from
+     Mexican Airstrips v0.94 (Wayne).
+     v0.2 (23-Nov-2026, Wayne's first feedback): Satellite is the default map (a picked
      layer is still remembered); the list can be hidden so the map takes the full width ("Hide list", remembered); "Open to third
      parties" filter (AFAC TIPO DE SERVICIO "SERVICIO PARTICULAR Y A TERCEROS"); corridor edges drawn as a dashed outline (per-leg
      capsules merged with polygon-clipping, vendored from Mexican Airstrips); ICAO airports no longer assumed paved or permitted:
@@ -31,6 +37,9 @@
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <!-- polygon-clipping 0.15.7 (MIT), vendored from Mexican Airstrips (site/vendor): merges the corridor outline -->
 <script src="vendor/polygon-clipping.umd.min.js"></script>
+<!-- NOAA WMM-2025 declination (geomagnetism 0.2.0, Apache-2.0), copied from Mexican Airstrips: runway numbers and estimated runways -->
+<script src="vendor/wmm.js"></script>
+<script src="ff.js?v=0.3"></script>
 <style>
   :root{
     --bg-deep:#10141a; --bg-panel:#1b222c; --bezel:#2a323f; --bezel-hi:#3a4454;
@@ -112,6 +121,24 @@
   .body2.nolist .list{ display:none; }
   .ctrls .btn.small{ padding:5px 10px; font-size:12.5px; margin-left:auto; }
   .tag.tp{ color:#7fd6ee; border-color:#7fd6ee; }
+  .ctrls .btn.ff{ margin-left:0; color:var(--amber); border-color:var(--amber-dim); background:rgba(245,166,35,.08); }
+  .ctrls .btn.ff[disabled]{ opacity:.45; pointer-events:none; }
+  .row .tick{ margin:0 8px 0 0; vertical-align:-2px; width:16px; height:16px; accent-color:#f5a623; }
+  .row.off{ opacity:.5; }
+  .cnt .lnk{ background:none; border:0; padding:0; color:var(--teal); font:inherit; cursor:pointer; text-decoration:underline; margin-left:6px; }
+  .ff-ovl{ position:fixed; inset:0; background:rgba(5,8,12,.72); display:flex; align-items:center; justify-content:center; z-index:4000; padding:14px; }
+  .ff-ovl[hidden]{ display:none; }
+  .ff-dlg{ width:100%; max-width:520px; max-height:100%; overflow:auto; background:var(--bg-panel); border:1px solid var(--bezel-hi); border-radius:12px; padding:16px 18px; box-shadow:0 20px 60px rgba(0,0,0,.6); }
+  .ff-dlg h2{ margin:0 0 6px; font-size:15px; }
+  .ff-dlg .opt{ display:flex; gap:8px; align-items:flex-start; padding:7px 0; border-bottom:1px solid var(--bezel); font-size:13.5px; cursor:pointer; }
+  .ff-dlg .opt input{ margin-top:3px; width:16px; height:16px; accent-color:#f5a623; flex:none; }
+  .ff-dlg .opt small{ display:block; color:var(--text-muted); font-size:11.5px; }
+  .ff-caution{ border:1px solid var(--amber); background:rgba(245,166,35,.08); border-radius:8px; padding:10px 12px; font-size:12px; line-height:1.45; margin:8px 0; }
+  .ff-caution[hidden]{ display:none; }
+  .ff-acts{ display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+  .ff-acts a.btn{ text-decoration:none; }
+  .ff-res[hidden]{ display:none; }
+  .ff-res ul{ margin:6px 0 0 18px; padding:0; font-size:12px; color:var(--text-muted); }
   .gaprow{ padding:8px 12px; border-bottom:1px solid var(--bezel); font-size:12px; color:var(--alert); background:rgba(224,112,95,.07); }
   .foot2{ font-size:11px; color:var(--text-muted); padding:8px 2px 0; line-height:1.5; }
   .legend{ display:inline-flex; gap:10px; flex-wrap:wrap; }
@@ -211,7 +238,7 @@
 <div class="rig">
   <div class="title-row">
     <h1>Planning Emergency Airstrips in Mexico</h1>
-    <span class="ver mono">v0.2</span>
+    <span class="ver mono">v0.3</span>
   </div>
   <p class="purpose-line"><span class="purpose-label">Purpose:</span> Enter a route across Mexico and see the airstrips along it, filtered by runway length, surface and permit, so you know your options before you go.</p>
 
@@ -239,12 +266,34 @@
       <label><input type="checkbox" id="terc"> Open to third parties</label>
       <label><input type="checkbox" id="icao" checked> ICAO airports</label>
       <button class="btn small" id="listBtn" type="button" aria-controls="list">Hide list</button>
+      <button class="btn small ff" id="ffBtn" type="button" disabled>Open in ForeFlight</button>
     </div>
     <div class="body2"><div id="map"></div><div class="list" id="list"></div></div>
     <div class="foot2"><span class="legend"><span><span class="dot" style="background:var(--amber)"></span>route waypoint</span><span><span class="dot" style="background:#b9c2cf"></span>paved</span><span><span class="dot" style="background:#c08a52"></span>dirt / unpaved</span><span><span class="dot" style="background:#3fa7a0"></span>water</span><span><span class="dot" style="background:#6b7380"></span>surface not listed</span><span><span class="dot" style="background:#7fd6ee;border-radius:2px"></span>ICAO airport</span><span>hollow = permit not current (ICAO: not on Mexico's official airport list)</span><span><span style="display:inline-block;width:16px;border-top:2px dashed #f5a623;vertical-align:3px;margin-right:4px"></span>corridor edge</span><span><span style="display:inline-block;width:16px;border-top:3px solid #e0705f;vertical-align:3px;margin-right:4px"></span>longest stretch with nothing in the corridor</span></span><br>
     Distance along the route and off course (left or right of the course line) in NM. "Open to third parties" is AFAC's service type "particular y a terceros" (private-use permits are "particular" only); ICAO airports pass it, and "Current permit only", when they're on Mexico's official airport list. ICAO runway length and surface come from OurAirports. Airstrips, elevations and lengths as AFAC's list gives them (<span id="afacEd">current</span> edition); AFAC's figures are sometimes wrong, and an airstrip on this list is not a known-safe landing spot. To draw one for ForeFlight, Garmin Pilot or X-Plane, look it up in <a href="https://airfield-kml-builder.netlify.app/" target="_blank" rel="noopener">Mexican Airstrips for your EFB and Sim</a>.</div>
   </div>
 </section>
+
+<div class="ff-ovl" id="ffOvl" hidden role="dialog" aria-modal="true" aria-labelledby="ffH">
+  <div class="ff-dlg">
+    <h2 id="ffH">Send to ForeFlight</h2>
+    <p class="hint" id="ffSum"></p>
+    <label class="opt"><input type="checkbox" id="ffRoute" checked><span>Route and corridor<small>Dashed and thinner than here, so they don't clutter ForeFlight's map</small></span></label>
+    <label class="opt"><input type="checkbox" id="ffWp" checked><span>Airstrip waypoints<small>One per airstrip, named like <span class="mono">SQA_EMG</span>, usable in a ForeFlight route (Mexican Airstrips uses _AFAC, so the two don't clash)</small></span></label>
+    <label class="opt"><input type="checkbox" id="ffRw" checked><span>Runways<small>From OpenStreetMap where it has one; otherwise estimated from AFAC's point, runway numbers and length, and may sit off the real airstrip</small></span></label>
+    <label class="opt"><input type="checkbox" id="ffPat" checked><span>Traffic patterns<small>½ NM either side, both directions, TPA 1,000 ft above AFAC's elevation (AFAC publishes no pattern direction)</small></span></label>
+    <label class="opt"><input type="checkbox" id="ffVis"><span>Visual approaches (advisory)<small>3° paths to each runway end, 5 NM, with the terrain check from Mexican Airstrips</small></span></label>
+    <div class="ff-caution" id="ffCaution" hidden><b>Visual approaches: advisory only.</b> <span id="ffCautionTxt"></span>
+      <div class="ff-acts"><button class="btn primary" id="ffVisOk" type="button">I understand</button><button class="btn" id="ffVisNo" type="button">Cancel</button></div></div>
+    <div class="ff-acts"><button class="btn primary" id="ffBuild" type="button">Build the pack</button><button class="btn" id="ffClose" type="button">Close</button></div>
+    <div class="status" id="ffStatus" role="status" aria-live="polite"></div>
+    <div class="ff-res" id="ffRes" hidden>
+      <div class="ff-acts"><a class="btn primary" id="ffOpen" href="#">Open in ForeFlight</a><a class="btn" id="ffDl" href="#">Download .zip</a></div>
+      <p class="hint" style="margin-top:8px">On iPhone or iPad, Open in ForeFlight installs the pack (ForeFlight asks first). Elsewhere, download the .zip and AirDrop or email it to the iPad. In ForeFlight: More → Custom Content. <b>Sending this route again?</b> Delete the old pack first, take its waypoints out of any active flight plan and restart ForeFlight: ForeFlight installs a second copy beside the old one.</p>
+      <ul id="ffNotes"></ul>
+    </div>
+  </div>
+</div>
 
 <div class="rig">
   <p class="fine">Not for navigation. A planning aid only. Data: AFAC's "Aeródromos y helipuertos" list (gob.mx), Mexico's official airport list with positions from <a href="https://ourairports.com/data/" target="_blank" rel="noopener">OurAirports</a>, and OurAirports navaids and US airports (public domain). With thanks to <a href="https://airports.robrc.net/" target="_blank" rel="noopener">airports.robrc.net</a>, which showed the way to AFAC's data. Check every airstrip against current official sources, recent pilot reports and your own eyes.</p>
@@ -420,6 +469,7 @@
     });
     rows.sort((a, b) => a.along - b.along);
     if (W.length < 2){
+      $('ffBtn').disabled = true;
       $('list').innerHTML = `<div class="cnt">${all.length.toLocaleString('en-US')} airstrips and airports with these filters</div><div class="row note">Enter a route above to list the ones along it. Tap a dot for its details.</div>`;
       declutter(); return;
     }
@@ -440,7 +490,7 @@
       const m = L.marker([x.lat, x.lon], { icon:icon(x.kind === 'icao' || x.des ? x.code : title(x.name), 'lab ' + (x.kind === 'icao' ? 'icao' : ''), style, 12), keyboard:false });
       m.on('click', () => select(i, true)); m.addTo(labLayer); x.m = m;
     });
-    $('list').innerHTML = `<div class="cnt">${rows.length} within ${corridor} NM of the ${nm0(total)} NM route · in route order</div>`
+    $('list').innerHTML = `<div class="cnt">${rows.length} within ${corridor} NM of the ${nm0(total)} NM route · in route order<br><span id="tickCnt"></span><button class="lnk" id="tickAll" type="button">all</button><button class="lnk" id="tickNone" type="button">none</button></div>`
       + (gap.len > 1 ? `<div class="gaprow">Longest stretch with nothing in the corridor: <b>${nm0(gap.len)} NM</b>, from ${nm0(gap.a)} to ${nm0(gap.b)} NM along the route (red on the map).</div>` : '')
       + (rows.length ? '' : '<div class="row note">Nothing in the corridor with these filters.</div>')
       + rows.map((x, i) => {
@@ -448,14 +498,70 @@
           : [title([x.muni, x.state].filter(Boolean).join(', ')), x.elev != null ? ft(x.elev) + ' ft' : 'elev —', rwyText(x)].join(' · ');
         const tag = tagsOf(x);
         const label = x.kind !== 'icao' && !x.des ? `${esc(title(x.name))} <span class="sub">(no AFAC designator)</span>` : `<span class="code ${x.kind === 'icao' ? 'icao' : ''}">${esc(x.code)}</span>${esc(title(x.name))}`;
-        return `<div class="row" data-i="${i}"><div class="top"><span>${label}</span><span class="rng">${nm0(x.along)} NM · ${x.xt < 0.5 ? 'on course' : x.xt.toFixed(0) + ' NM ' + x.side}</span></div><div class="sub">${esc(sub)} ${tag}</div></div>`;
+        const tick = x.kind === 'afac' ? `<input type="checkbox" class="tick" data-t="${i}" aria-label="Send ${esc(x.code)} to ForeFlight"${skip.has(x.key) ? '' : ' checked'}>` : '';
+        return `<div class="row${x.kind === 'afac' && skip.has(x.key) ? ' off' : ''}" data-i="${i}"><div class="top"><span>${tick}${label}</span><span class="rng">${nm0(x.along)} NM · ${x.xt < 0.5 ? 'on course' : x.xt.toFixed(0) + ' NM ' + x.side}</span></div><div class="sub">${esc(sub)} ${tag}</div></div>`;
       }).join('');
-    $('list').querySelectorAll('.row[data-i]').forEach(el => el.addEventListener('click', () => select(+el.dataset.i, false)));
+    $('list').querySelectorAll('.row[data-i]').forEach(el => el.addEventListener('click', e => { if (!e.target.classList.contains('tick')) select(+el.dataset.i, false); }));
+    $('list').querySelectorAll('.tick').forEach(cb => cb.addEventListener('change', () => { const x = rows[+cb.dataset.t]; cb.checked ? skip.delete(x.key) : skip.add(x.key); cb.closest('.row').classList.toggle('off', !cb.checked); tickCount(); }));
+    const ta = $('tickAll'), tn = $('tickNone');
+    if (ta) ta.onclick = () => { rows.forEach(x => skip.delete(x.key)); render(false); };
+    if (tn) tn.onclick = () => { rows.forEach(x => { if (x.kind === 'afac') skip.add(x.key); }); render(false); };
+    tickCount();
     if (fit) fitRoute();
     declutter();
   }
+  // ---------- v0.3: ForeFlight content pack ----------
+  const skip = new Set();   // AFAC airstrips unticked in the list (keys survive filter changes)
+  const ticked = () => rows.filter(x => x.kind === 'afac' && !skip.has(x.key));
+  function tickCount(){ const n = ticked().length, el = $('tickCnt'); if (el) el.textContent = `${n} ticked for ForeFlight ·`; $('ffBtn').disabled = W.length < 2; }
+  const FF_KEY = 'mxEmergency.ff', FF_VIS_KEY = 'mxEmergency.ff.visCautionV1';
+  const ffIds = { route:'ffRoute', waypoints:'ffWp', runways:'ffRw', patterns:'ffPat', visuals:'ffVis' };
+  function ffOpen(){
+    try { const o = JSON.parse(localStorage.getItem(FF_KEY) || '{}'); Object.entries(ffIds).forEach(([k, id]) => { if (k in o) $(id).checked = !!o[k]; }); } catch (e){}
+    try { if ($('ffVis').checked && localStorage.getItem(FF_VIS_KEY) !== 'ok') $('ffVis').checked = false; } catch (e){}
+    const n = ticked().length, ic = rows.filter(x => x.kind === 'icao').length;
+    $('ffSum').textContent = `${n} airstrip${n === 1 ? '' : 's'} ticked in the list for ${W.map(w => w.code).join(' ')}` + (ic ? `; ${ic} ICAO airport${ic > 1 ? 's are' : ' is'} left out (already in ForeFlight).` : '.');
+    $('ffRes').hidden = true; $('ffStatus').textContent = ''; $('ffStatus').className = 'status'; $('ffCaution').hidden = true;
+    $('ffOvl').hidden = false;
+  }
+  function ffClose(){ $('ffOvl').hidden = true; }
+  function ffSave(){ try { const o = {}; Object.entries(ffIds).forEach(([k, id]) => { o[k] = $(id).checked; }); localStorage.setItem(FF_KEY, JSON.stringify(o)); } catch (e){} }
+  $('ffBtn').addEventListener('click', ffOpen);
+  $('ffClose').addEventListener('click', ffClose);
+  $('ffOvl').addEventListener('click', e => { if (e.target === $('ffOvl')) ffClose(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('ffOvl').hidden) ffClose(); });
+  $('ffCautionTxt').textContent = FF.VIS_CAUTION.replace(/^CAUTION: ADVISORY ONLY\. /, '');
+  // turning visual approaches on asks for the caution (as in Mexican Airstrips); remembered on the device until turned off
+  $('ffVis').addEventListener('change', () => {
+    if ($('ffVis').checked){ $('ffVis').checked = false; $('ffCaution').hidden = false; $('ffVisOk').focus(); }
+    else { try { localStorage.removeItem(FF_VIS_KEY); } catch (e){} ffSave(); }
+    $('ffRes').hidden = true;
+  });
+  $('ffVisOk').addEventListener('click', () => { $('ffVis').checked = true; $('ffCaution').hidden = true; try { localStorage.setItem(FF_VIS_KEY, 'ok'); } catch (e){} ffSave(); });
+  $('ffVisNo').addEventListener('click', () => { $('ffCaution').hidden = true; });
+  Object.values(ffIds).filter(id => id !== 'ffVis').forEach(id => $(id).addEventListener('change', () => { ffSave(); $('ffRes').hidden = true; }));
+  const IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  $('ffBuild').addEventListener('click', async () => {
+    const opt = {}; Object.entries(ffIds).forEach(([k, id]) => { opt[k] = $(id).checked; });
+    const list = ticked().map(x => ({ des:x.des, name:x.name, muni:x.muni, state:x.state, elev:x.elev, lat:x.lat, lon:x.lon, rwyArr:x.rwyArr, len:x.len, wid:x.wid, surf:x.surf, status:x.status, terc:x.terc }));
+    if (!list.length && !opt.route){ $('ffStatus').className = 'status warn'; $('ffStatus').textContent = 'Nothing to send: tick some airstrips in the list or the route.'; return; }
+    $('ffBuild').disabled = true; $('ffRes').hidden = true; $('ffStatus').className = 'status';
+    try {
+      const out = await FF.build({ W, corridorRings, corridor, airstrips:list, opt, edition:$('afacEd').textContent, progress:t => { $('ffStatus').textContent = t; } });
+      $('ffOpen').href = 'https://foreflight.com/content?downloadURL=' + encodeURIComponent(out.url);
+      $('ffDl').href = out.url;
+      $('ffStatus').className = 'status'; $('ffStatus').innerHTML = `Pack <b>${esc(out.title)}</b> is ready (${list.length} airstrip${list.length === 1 ? '' : 's'}).` + (IOS ? '' : ' Open in ForeFlight works on iPhone and iPad; here, download the .zip.');
+      $('ffNotes').innerHTML = out.notes.map(n => `<li>${esc(n)}</li>`).join('') + (opt.waypoints && out.wps.length ? `<li>Waypoints: ${esc(out.wps.join(', '))}</li>` : '');
+      $('ffRes').hidden = false;
+    } catch (e){ $('ffStatus').className = 'status warn'; $('ffStatus').textContent = e.message || String(e); }
+    $('ffBuild').disabled = false;
+  });
+  $('ffOpen').addEventListener('click', e => { if (!IOS){ e.preventDefault(); $('ffStatus').className = 'status warn'; $('ffStatus').textContent = 'Open in ForeFlight only works on iPhone or iPad. Use Download .zip here.'; } });
+
   // v0.2: corridor edges, as in ForeFlight (Wayne): one capsule per leg (rounded ends), merged into one outline
+  let corridorRings = [];
   function drawCorridor(){
+    corridorRings = [];
     if (typeof polygonClipping === 'undefined' || W.length < 2) return;
     const caps = [];
     for (let i = 0; i < W.length - 1; i++){
@@ -469,6 +575,7 @@
     }
     let merged;
     try { merged = polygonClipping.union(...caps); } catch (e){ merged = caps; }
+    corridorRings = merged.flatMap(poly => poly.map(r => r.map(([lo, la]) => [la, lo])));
     merged.forEach(poly => L.polygon(poly.map(r => r.map(([lo, la]) => [la, lo])), { color:'#f5a623', weight:2.2, dashArray:'7 5', opacity:1, fillColor:'#f5a623', fillOpacity:.06, interactive:false }).addTo(routeLayer));
   }
   function declutter(){ $('map').classList.toggle('far', rows.length > 25 && map.getZoom() < 8); }
@@ -526,7 +633,7 @@
       ]);
       if (!afac.records) throw new Error(afac.error || 'no AFAC records');
       STR = afac.records.filter(r => r.lat != null).map(r => ({ kind:'afac', code:r.des || title(r.name), des:r.des, name:r.name, muni:r.muni, state:r.state, elev:r.elev_m, lat:r.lat, lon:r.lon,
-        rwy:(r.rwy || []).some(v => /^\d/.test(v)) ? r.rwy.join('/') : '', len:r.len_m, surf:r.surf, cur:/^VIGENTE/.test(r.status || ''), status:r.status, terc:/TERCEROS/i.test(r.svc || '') }));
+        rwy:(r.rwy || []).some(v => /^\d/.test(v)) ? r.rwy.join('/') : '', len:r.len_m, surf:r.surf, cur:/^VIGENTE/.test(r.status || ''), status:r.status, terc:/TERCEROS/i.test(r.svc || ''), rwyArr:r.rwy || [], wid:r.wid_m, key:(r.file || '') + '|' + (r.des || '') + '|' + r.name }));
       ICAO = icao.airports.map(a => { const w = irw.runways[a.code];
         return { kind:'icao', code:a.code, name:a.name, lat:a.lat, lon:a.lon, sam:!!a.sam, rwy:w && /^\d/.test(w[0]) ? w[0] : '', len:w && w[1] ? w[1] / 3.28084 : null, surfCode:w ? w[2] : '' }; });
       NAV = nav.navaids; US = us.airports;
