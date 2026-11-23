@@ -3,7 +3,8 @@
      #ff7a1a (clear of ForeFlight's blue airways/airspace, cyan traffic, magenta route and the pack's light-blue patterns):
      route 3 px, 3 NM dashes / 1 NM gaps; corridor 2.5 px, 1.5 NM / 1 NM (Wayne: too faint in ForeFlight). Off iPhone/iPad,
      "Open in ForeFlight" explains it only works there and offers the .zip download inline, and the pop-up gives the full
-     install steps, layer toggles, subscription note and resend steps, as in Mexican Airstrips (Wayne).
+     install steps, layer toggles, subscription note and resend steps, as in Mexican Airstrips (Wayne). Route and Corridor
+     are separate tick boxes and separate files in the pack, so each has its own Map Layers toggle (Wayne).
      v0.3 (23-Nov-2026): "Open in ForeFlight" (top right of section 2) builds a ForeFlight
      content pack for the airstrips ticked in the list (tick boxes, all on for the current filters; ICAO airports are left out,
      ForeFlight has them): route and corridor (dashed, thinner than in the app), <code>_EMG waypoints at each runway's midpoint,
@@ -284,7 +285,8 @@
   <div class="ff-dlg">
     <h2 id="ffH">Send to ForeFlight</h2>
     <p class="hint" id="ffSum"></p>
-    <label class="opt"><input type="checkbox" id="ffRoute" checked><span>Route and corridor<small>Dashed and thinner than here, so they don't clutter ForeFlight's map</small></span></label>
+    <label class="opt"><input type="checkbox" id="ffRoute" checked><span>Route<small>Orange dashed line, long dashes</small></span></label>
+    <label class="opt"><input type="checkbox" id="ffCor" checked><span>Corridor<small>Orange dashed outline, short dashes</small></span></label>
     <label class="opt"><input type="checkbox" id="ffWp" checked><span>Airstrip waypoints<small>One per airstrip, named like <span class="mono">SQA_EMG</span>, usable in a ForeFlight route (Mexican Airstrips uses _AFAC, so the two don't clash)</small></span></label>
     <label class="opt"><input type="checkbox" id="ffRw" checked><span>Runways<small>From OpenStreetMap where it has one; otherwise estimated from AFAC's point, runway numbers and length, and may sit off the real airstrip</small></span></label>
     <label class="opt"><input type="checkbox" id="ffPat" checked><span>Traffic patterns<small>½ NM either side, both directions, TPA 1,000 ft above AFAC's elevation (AFAC publishes no pattern direction)</small></span></label>
@@ -295,7 +297,7 @@
     <div class="status" id="ffStatus" role="status" aria-live="polite"></div>
     <div class="ff-res" id="ffRes" hidden>
       <div class="ff-acts"><a class="btn primary" id="ffOpen" href="#">Open in ForeFlight</a><a class="btn" id="ffDl" href="#">Download .zip</a></div>
-      <p class="hint" style="margin-top:8px"><b>On iPhone or iPad</b>, "Open in ForeFlight" sends the pack to ForeFlight (it asks first). <b>ForeFlight then only queues the pack: to finish, go to More → Custom Content, tap the pack, and tap Install.</b> If tapping the button doesn't open ForeFlight, press and hold it and choose "Open in ForeFlight". <b>On a Mac, PC or Android device</b>, ForeFlight isn't there, so download the .zip and AirDrop or email it to the iPad, then open it in ForeFlight. In the Maps layer selector each file in the pack is its own toggle (Route, Airstrips); the <code>_EMG</code> waypoints file without their layer on, so you can type them into a flight plan. Content packs need an individual ForeFlight subscription, or Performance level or higher for Business and MFB accounts. <b>Sending this route again?</b> ForeFlight doesn't replace a pack of the same name; it installs a second copy beside the old one. So first take its waypoints out of any active flight plan, delete the old pack in ForeFlight, close and reopen ForeFlight, then send it again.</p>
+      <p class="hint" style="margin-top:8px"><b>On iPhone or iPad</b>, "Open in ForeFlight" sends the pack to ForeFlight (it asks first). <b>ForeFlight then only queues the pack: to finish, go to More → Custom Content, tap the pack, and tap Install.</b> If tapping the button doesn't open ForeFlight, press and hold it and choose "Open in ForeFlight". <b>On a Mac, PC or Android device</b>, ForeFlight isn't there, so download the .zip and AirDrop or email it to the iPad, then open it in ForeFlight. In the Maps layer selector each file in the pack is its own toggle (Route, Corridor, Airstrips); the <code>_EMG</code> waypoints file without their layer on, so you can type them into a flight plan. Content packs need an individual ForeFlight subscription, or Performance level or higher for Business and MFB accounts. <b>Sending this route again?</b> ForeFlight doesn't replace a pack of the same name; it installs a second copy beside the old one. So first take its waypoints out of any active flight plan, delete the old pack in ForeFlight, close and reopen ForeFlight, then send it again.</p>
       <ul id="ffNotes"></ul>
     </div>
   </div>
@@ -521,7 +523,7 @@
   const ticked = () => rows.filter(x => x.kind === 'afac' && !skip.has(x.key));
   function tickCount(){ const n = ticked().length, el = $('tickCnt'); if (el) el.textContent = `${n} ticked for ForeFlight ·`; $('ffBtn').disabled = W.length < 2; }
   const FF_KEY = 'mxEmergency.ff', FF_VIS_KEY = 'mxEmergency.ff.visCautionV1';
-  const ffIds = { route:'ffRoute', waypoints:'ffWp', runways:'ffRw', patterns:'ffPat', visuals:'ffVis' };
+  const ffIds = { route:'ffRoute', corridor:'ffCor', waypoints:'ffWp', runways:'ffRw', patterns:'ffPat', visuals:'ffVis' };
   function ffOpen(){
     try { const o = JSON.parse(localStorage.getItem(FF_KEY) || '{}'); Object.entries(ffIds).forEach(([k, id]) => { if (k in o) $(id).checked = !!o[k]; }); } catch (e){}
     try { if ($('ffVis').checked && localStorage.getItem(FF_VIS_KEY) !== 'ok') $('ffVis').checked = false; } catch (e){}
@@ -550,7 +552,7 @@
   $('ffBuild').addEventListener('click', async () => {
     const opt = {}; Object.entries(ffIds).forEach(([k, id]) => { opt[k] = $(id).checked; });
     const list = ticked().map(x => ({ des:x.des, name:x.name, muni:x.muni, state:x.state, elev:x.elev, lat:x.lat, lon:x.lon, rwyArr:x.rwyArr, len:x.len, wid:x.wid, surf:x.surf, status:x.status, terc:x.terc }));
-    if (!list.length && !opt.route){ $('ffStatus').className = 'status warn'; $('ffStatus').textContent = 'Nothing to send: tick some airstrips in the list or the route.'; return; }
+    if (!list.length && !opt.route && !opt.corridor){ $('ffStatus').className = 'status warn'; $('ffStatus').textContent = 'Nothing to send: tick some airstrips in the list, the route or the corridor.'; return; }
     $('ffBuild').disabled = true; $('ffRes').hidden = true; $('ffStatus').className = 'status';
     try {
       const out = await FF.build({ W, corridorRings, corridor, airstrips:list, opt, edition:$('afacEd').textContent, progress:t => { $('ffStatus').textContent = t; } });

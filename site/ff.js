@@ -187,11 +187,16 @@
   const style = (id, hex, a, w, fill, fa) => `<Style id="${id}"><LineStyle><color>${kmlColor(hex, a)}</color><width>${w}</width></LineStyle>${fill ? `<PolyStyle><color>${kmlColor(fill, fa)}</color></PolyStyle>` : '<PolyStyle><fill>0</fill></PolyStyle>'}</Style>`;
   const lbl = `<Style id="lbl"><IconStyle><scale>0.6</scale></IconStyle><LabelStyle><scale>1.0</scale></LabelStyle></Style>`;
   // v0.3 (Wayne): route and corridor dashed and thinner than in the app, so they don't clutter ForeFlight's map
-  function routeKml(name, W, corridorRings, corNM){
-    let k = head(name) + style('route', '#ff7a1a', 'ff', 3, null) + style('corr', '#ff7a1a', 'ff', 2.5, null);
+  // v0.4 (Wayne): bolder, fully opaque orange; route and corridor are separate files (separate Map Layers toggles)
+  function routeKml(name, W){
+    let k = head(name) + style('route', '#ff7a1a', 'ff', 3, null);
     const route = W.map(w => [w.lat, w.lon]);
     k += `<Placemark><name>Route ${esc(W.map(w => w.code).join(' '))}</name><description><![CDATA[Route from Planning Emergency Airstrips in Mexico. NOT FOR NAVIGATION.]]></description><styleUrl>#route</styleUrl><MultiGeometry>${dashPath(route, 3 * NM_M, 1 * NM_M).map(LS).join('')}</MultiGeometry></Placemark>\n`;
-    if (corridorRings && corridorRings.length) k += `<Placemark><name>Corridor ${corNM} NM</name><description><![CDATA[${corNM} NM either side of the route. NOT FOR NAVIGATION.]]></description><styleUrl>#corr</styleUrl><MultiGeometry>${corridorRings.map(r => dashPath(r, 1.5 * NM_M, 1 * NM_M).map(LS).join('')).join('')}</MultiGeometry></Placemark>\n`;
+    return k + '</Document></kml>\n';
+  }
+  function corridorKml(name, corridorRings, corNM){
+    let k = head(name) + style('corr', '#ff7a1a', 'ff', 2.5, null);
+    k += `<Placemark><name>Corridor ${corNM} NM</name><description><![CDATA[${corNM} NM either side of the route. NOT FOR NAVIGATION.]]></description><styleUrl>#corr</styleUrl><MultiGeometry>${corridorRings.map(r => dashPath(r, 1.5 * NM_M, 1 * NM_M).map(LS).join('')).join('')}</MultiGeometry></Placemark>\n`;
     return k + '</Document></kml>\n';
   }
   function airstripsKml(name, items, opt){
@@ -293,7 +298,8 @@
     if (noRw) notes.push(`${noRw} airstrip${noRw > 1 ? 's have' : ' has'} no runway numbers or length in AFAC's list, so only the waypoint is sent.`);
     if (visFail) notes.push(`Terrain data didn't load for ${visFail} airstrip${visFail > 1 ? 's' : ''}, so no visual approaches for ${visFail > 1 ? 'them' : 'it'} (the terrain check can't be skipped).`);
     const files = { [`${abbr}/manifest.json`]: JSON.stringify({ name: title, abbreviation: abbr, version: 1, effectiveDate: stamp(), organizationName: 'GeezerGeek Pilot Planning Emergency Airstrips in Mexico' }, null, 1) };
-    if (opt.route) files[`${abbr}/layers/${abbr} Route.kml`] = routeKml(`${abbr} Route`, a.W, a.corridorRings, a.corridor);
+    if (opt.route) files[`${abbr}/layers/${abbr} Route.kml`] = routeKml(`${abbr} Route`, a.W);
+    if (opt.corridor && a.corridorRings && a.corridorRings.length) files[`${abbr}/layers/${abbr} Corridor.kml`] = corridorKml(`${abbr} Corridor`, a.corridorRings, a.corridor);
     if ((opt.runways || opt.patterns || opt.visuals) && items.some(x => x.rw)) files[`${abbr}/layers/${abbr} Airstrips.kml`] = airstripsKml(`${abbr} Airstrips`, items, opt);
     if (opt.waypoints && items.length) files[`${abbr}/navdata/${abbr} Waypoints.kml`] = waypointsKml(`${abbr} Waypoints`, items, a.edition);
     if (Object.keys(files).length < 2) throw new Error('Nothing to send: tick at least one item.');
