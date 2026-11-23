@@ -10,7 +10,8 @@ nav = []
 for r in get('navaids.csv'):
     la, lo = float(r['latitude_deg']), float(r['longitude_deg'])
     if r['iso_country'] == 'MX' or (r['iso_country'] == 'US' and la < 37.5 and -125 < lo < -93):
-        nav.append([r['ident'], r['name'], r['type'], round(la, 5), round(lo, 5), r['iso_country']])
+        sv = r['slaved_variation_deg']  # VOR station declination, degrees east positive (radials are referenced to it)
+        nav.append([r['ident'], r['name'], r['type'], round(la, 5), round(lo, 5), r['iso_country'], round(float(sv), 1) if sv else None])
 us = []
 for r in get('airports.csv'):
     if r['iso_region'] in ('US-CA', 'US-AZ', 'US-NM', 'US-TX') and re.fullmatch(r'K[A-Z0-9]{3}', r['ident']) and r['type'] in ('small_airport', 'medium_airport', 'large_airport'):
@@ -28,7 +29,7 @@ for r in get('runways.csv'):
 built = datetime.date.today().isoformat()
 src = 'OurAirports (public domain), https://ourairports.com/data/ via github.com/davidmegginson/ourairports-data'
 here = os.path.join(os.path.dirname(__file__), '..', 'site', 'data')
-json.dump({'about': 'Navaids for route entry: [ident, name, type, lat, lon, country]', 'source': src, 'built': built, 'navaids': nav}, open(os.path.join(here, 'navaids.json'), 'w'), ensure_ascii=False, separators=(',', ':'))
+json.dump({'about': 'Navaids for route entry: [ident, name, type, lat, lon, country, station declination deg E (VORs; null otherwise)]', 'source': src, 'built': built, 'navaids': nav}, open(os.path.join(here, 'navaids.json'), 'w'), ensure_ascii=False, separators=(',', ':'))
 json.dump({'about': 'US airports (CA, AZ, NM, TX) for route entry: [ident, name, lat, lon]', 'source': src, 'built': built, 'airports': us}, open(os.path.join(here, 'us-airports.json'), 'w'), ensure_ascii=False, separators=(',', ':'))
 json.dump({'about': 'Longest open runway per Mexican ICAO airport: code -> [runway ids, length ft, OurAirports surface code]; airports missing here have no runway in OurAirports', 'source': src, 'built': built, 'runways': rwy}, open(os.path.join(here, 'mx-icao-runways.json'), 'w'), ensure_ascii=False, separators=(',', ':'))
 print(len(nav), 'navaids,', len(us), 'US airports,', len(rwy), 'ICAO runway summaries')
