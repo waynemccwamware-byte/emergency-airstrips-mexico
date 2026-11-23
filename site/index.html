@@ -1,5 +1,10 @@
 <!DOCTYPE html>
-<!-- Planning Emergency Airstrips in Mexico v0.3 (23-Nov-2026): "Open in ForeFlight" (top right of section 2) builds a ForeFlight
+<!-- Planning Emergency Airstrips in Mexico v0.4 (23-Nov-2026): pack route and corridor bolder and fully opaque, in orange
+     #ff7a1a (clear of ForeFlight's blue airways/airspace, cyan traffic, magenta route and the pack's light-blue patterns):
+     route 3 px, 3 NM dashes / 1 NM gaps; corridor 2.5 px, 1.5 NM / 1 NM (Wayne: too faint in ForeFlight). Off iPhone/iPad,
+     "Open in ForeFlight" explains it only works there and offers the .zip download inline, and the pop-up gives the full
+     install steps, layer toggles, subscription note and resend steps, as in Mexican Airstrips (Wayne).
+     v0.3 (23-Nov-2026): "Open in ForeFlight" (top right of section 2) builds a ForeFlight
      content pack for the airstrips ticked in the list (tick boxes, all on for the current filters; ICAO airports are left out,
      ForeFlight has them): route and corridor (dashed, thinner than in the app), <code>_EMG waypoints at each runway's midpoint,
      runways (OpenStreetMap, else estimated from AFAC's figures), traffic patterns, visual approaches (off; caution to turn on,
@@ -90,6 +95,7 @@
   .status{ font-size:12.5px; color:var(--text-muted); margin-top:8px; min-height:18px; }
   .status b{ color:var(--text-primary); }
   .status .warn, .status.warn{ color:var(--alert); }
+  .linkbtn{ background:none; border:0; padding:0; color:var(--amber); font:inherit; cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
   .fine{ margin:10px 4px 0; font-size:11px; line-height:1.6; color:var(--text-muted); }
 
   /* section 2 spans the window (Wayne); the expand button makes it fill the screen */
@@ -238,7 +244,7 @@
 <div class="rig">
   <div class="title-row">
     <h1>Planning Emergency Airstrips in Mexico</h1>
-    <span class="ver mono">v0.3</span>
+    <span class="ver mono">v0.4</span>
   </div>
   <p class="purpose-line"><span class="purpose-label">Purpose:</span> Enter a route across Mexico and see the airstrips along it, filtered by runway length, surface and permit, so you know your options before you go.</p>
 
@@ -289,7 +295,7 @@
     <div class="status" id="ffStatus" role="status" aria-live="polite"></div>
     <div class="ff-res" id="ffRes" hidden>
       <div class="ff-acts"><a class="btn primary" id="ffOpen" href="#">Open in ForeFlight</a><a class="btn" id="ffDl" href="#">Download .zip</a></div>
-      <p class="hint" style="margin-top:8px">On iPhone or iPad, Open in ForeFlight installs the pack (ForeFlight asks first). Elsewhere, download the .zip and AirDrop or email it to the iPad. In ForeFlight: More → Custom Content. <b>Sending this route again?</b> Delete the old pack first, take its waypoints out of any active flight plan and restart ForeFlight: ForeFlight installs a second copy beside the old one.</p>
+      <p class="hint" style="margin-top:8px"><b>On iPhone or iPad</b>, "Open in ForeFlight" sends the pack to ForeFlight (it asks first). <b>ForeFlight then only queues the pack: to finish, go to More → Custom Content, tap the pack, and tap Install.</b> If tapping the button doesn't open ForeFlight, press and hold it and choose "Open in ForeFlight". <b>On a Mac, PC or Android device</b>, ForeFlight isn't there, so download the .zip and AirDrop or email it to the iPad, then open it in ForeFlight. In the Maps layer selector each file in the pack is its own toggle (Route, Airstrips); the <code>_EMG</code> waypoints file without their layer on, so you can type them into a flight plan. Content packs need an individual ForeFlight subscription, or Performance level or higher for Business and MFB accounts. <b>Sending this route again?</b> ForeFlight doesn't replace a pack of the same name; it installs a second copy beside the old one. So first take its waypoints out of any active flight plan, delete the old pack in ForeFlight, close and reopen ForeFlight, then send it again.</p>
       <ul id="ffNotes"></ul>
     </div>
   </div>
@@ -556,7 +562,9 @@
     } catch (e){ $('ffStatus').className = 'status warn'; $('ffStatus').textContent = e.message || String(e); }
     $('ffBuild').disabled = false;
   });
-  $('ffOpen').addEventListener('click', e => { if (!IOS){ e.preventDefault(); $('ffStatus').className = 'status warn'; $('ffStatus').textContent = 'Open in ForeFlight only works on iPhone or iPad. Use Download .zip here.'; } });
+  $('ffOpen').addEventListener('click', e => { if (!IOS){ e.preventDefault(); $('ffStatus').className = 'status warn';
+    $('ffStatus').innerHTML = 'ForeFlight runs on iPhone and iPad, so "Open in ForeFlight" only works there (on this device the link just opens ForeFlight\'s website). Open this page on the iPad instead, or <button class="linkbtn" type="button" id="ffDlNow">download the ForeFlight pack (.zip)</button> here and AirDrop or email it to the iPad.';
+    $('ffDlNow').onclick = () => $('ffDl').click(); } });
 
   // v0.2: corridor edges, as in ForeFlight (Wayne): one capsule per leg (rounded ends), merged into one outline
   let corridorRings = [];

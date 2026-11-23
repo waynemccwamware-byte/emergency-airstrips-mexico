@@ -188,10 +188,10 @@
   const lbl = `<Style id="lbl"><IconStyle><scale>0.6</scale></IconStyle><LabelStyle><scale>1.0</scale></LabelStyle></Style>`;
   // v0.3 (Wayne): route and corridor dashed and thinner than in the app, so they don't clutter ForeFlight's map
   function routeKml(name, W, corridorRings, corNM){
-    let k = head(name) + style('route', '#f5a623', 'ff', 1.5, null) + style('corr', '#f5a623', 'b3', 1, null);
+    let k = head(name) + style('route', '#ff7a1a', 'ff', 3, null) + style('corr', '#ff7a1a', 'ff', 2.5, null);
     const route = W.map(w => [w.lat, w.lon]);
-    k += `<Placemark><name>Route ${esc(W.map(w => w.code).join(' '))}</name><description><![CDATA[Route from Planning Emergency Airstrips in Mexico. NOT FOR NAVIGATION.]]></description><styleUrl>#route</styleUrl><MultiGeometry>${dashPath(route, 2.5 * NM_M, 1.5 * NM_M).map(LS).join('')}</MultiGeometry></Placemark>\n`;
-    if (corridorRings && corridorRings.length) k += `<Placemark><name>Corridor ${corNM} NM</name><description><![CDATA[${corNM} NM either side of the route. NOT FOR NAVIGATION.]]></description><styleUrl>#corr</styleUrl><MultiGeometry>${corridorRings.map(r => dashPath(r, 1.5 * NM_M, 1.5 * NM_M).map(LS).join('')).join('')}</MultiGeometry></Placemark>\n`;
+    k += `<Placemark><name>Route ${esc(W.map(w => w.code).join(' '))}</name><description><![CDATA[Route from Planning Emergency Airstrips in Mexico. NOT FOR NAVIGATION.]]></description><styleUrl>#route</styleUrl><MultiGeometry>${dashPath(route, 3 * NM_M, 1 * NM_M).map(LS).join('')}</MultiGeometry></Placemark>\n`;
+    if (corridorRings && corridorRings.length) k += `<Placemark><name>Corridor ${corNM} NM</name><description><![CDATA[${corNM} NM either side of the route. NOT FOR NAVIGATION.]]></description><styleUrl>#corr</styleUrl><MultiGeometry>${corridorRings.map(r => dashPath(r, 1.5 * NM_M, 1 * NM_M).map(LS).join('')).join('')}</MultiGeometry></Placemark>\n`;
     return k + '</Document></kml>\n';
   }
   function airstripsKml(name, items, opt){
