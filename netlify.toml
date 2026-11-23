@@ -1,0 +1,8 @@
+# Planning Emergency Airstrips in Mexico — deployed by Netlify from this GitHub repo (main branch).
+# No build step: Netlify publishes site/ as-is; netlify/functions/afac.js uses no npm packages.
+[build]
+  publish = "site"
+  command = ""
+
+[functions]
+  directory = "netlify/functions"

@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<!-- Planning Emergency Airstrips in Mexico v0.1 (23-Nov-2026): companion to Mexican Airstrips for your EFB and Sim (Wayne, from its
+     Nearby airstrips pop-up). Opens on a map of all of Mexico with a dot at every AFAC aerodrome (and the ICAO airports); a route
+     typed as waypoints (ICAO airports, VOR/NDB idents, X-prefixed AFAC designators, coordinates) is drawn and the map zooms to it;
+     the airstrips within 10/25/50 NM of the route are listed in route order with distance along and off course, filtered by runway
+     length, paved, current permit and ICAO airports; the longest stretch of route with nothing in the corridor is drawn red.
+     Section 2 spans the window, with a button to make it fill the screen. Data: AFAC list via netlify/functions/afac.js (copied
+     from Mexican Airstrips), site/data/mx-icao.json (copied), site/data/navaids.json and us-airports.json (OurAirports, built by
+     tools/build-data.py). Not for navigation. -->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Planning Emergency Airstrips in Mexico</title>
+<!-- same icon as the Control Panel (copied from Mexican Airstrips' site/icons/icon-192.png) -->
+<link rel="icon" href="icons/icon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-title" content="MX Emergency">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- Leaflet 1.9.4 (pinned, jsDelivr), App Conventions §7 -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root{
+    --bg-deep:#10141a; --bg-panel:#1b222c; --bezel:#2a323f; --bezel-hi:#3a4454;
+    --amber:#f5a623; --amber-dim:#7a5a1e; --amber-glow:rgba(245,166,35,0.35);
+    --text-primary:#e7e4dc; --text-muted:#8b93a1; --teal:#3fa7a0; --alert:#e0705f; --blue:#7fd6ee;
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top, 0px);
+    padding-bottom:env(safe-area-inset-bottom, 0px);
+  }
+  *,*::before,*::after{ box-sizing:inherit; }
+  html{ background:var(--bg-deep); overscroll-behavior:none; color-scheme:dark; }
+  body{ margin:0; min-height:100vh; overscroll-behavior:none;
+    background:radial-gradient(ellipse at 50% 0%, #171d26 0%, var(--bg-deep) 60%);
+    font-family:'IBM Plex Sans', sans-serif; color:var(--text-primary); padding:14px 12px 40px; }
+  body.sec-big{ overflow:hidden; }
+  .mono{ font-family:'IBM Plex Mono', monospace; }
+  .rig{ width:100%; max-width:1100px; margin:0 auto; }
+  .title-row{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:2px; padding:0 4px; }
+  .title-row h1{ font-size:19px; font-weight:600; margin:0; letter-spacing:0.01em; }
+  .title-row .ver{ font-size:11px; color:var(--text-muted); }
+  .purpose-line{ font-size:12.5px; color:var(--teal); margin:4px 4px 10px; line-height:1.5; }
+  .purpose-label{ color:var(--text-primary); }
+  .step{ display:grid; grid-template-columns:26px minmax(0,1fr); gap:10px; padding:12px 14px; margin-top:10px;
+    background:var(--bg-panel); border:1px solid var(--bezel-hi); border-radius:10px;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.03), 0 8px 24px rgba(0,0,0,0.35); }
+  .step-num{ font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--amber); border:1px solid var(--amber-dim); border-radius:50%;
+    width:24px; height:24px; display:flex; align-items:center; justify-content:center; margin-top:2px; }
+  .step-body{ min-width:0; }
+  .step-body h2{ font-size:13.5px; font-weight:600; margin:0 0 2px; letter-spacing:0.02em; }
+  .hint{ font-size:12px; color:var(--text-muted); margin:0 0 8px; line-height:1.45; }
+  .fld{ background:var(--bg-deep); color:var(--text-primary); border:1px solid var(--bezel-hi); border-radius:6px;
+    font:500 16px 'IBM Plex Mono', monospace; padding:7px 10px; outline:none; min-width:0; }
+  .fld:focus{ border-color:var(--amber); box-shadow:0 0 0 2px var(--amber-glow); }
+  .q-row{ display:flex; gap:8px; }
+  .q-row .fld{ flex:1; }
+  .btn{ font:500 13px 'IBM Plex Sans', sans-serif; padding:8px 14px; border-radius:6px; border:1px solid var(--bezel-hi);
+    background:transparent; color:var(--text-muted); cursor:pointer; white-space:nowrap; }
+  .btn:hover{ color:var(--amber); border-color:var(--amber); }
+  .btn:focus-visible{ outline:2px solid var(--amber); outline-offset:2px; }
+  .btn.primary{ color:var(--amber); border-color:var(--amber-dim); background:rgba(245,166,35,0.08); }
+  a{ color:var(--teal); text-decoration:none; }
+  a:hover{ text-decoration:underline; }
+  .chips{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .chips:empty{ display:none; }
+  .chip{ font:500 12px 'IBM Plex Mono', monospace; border:1px solid var(--bezel-hi); border-radius:5px; padding:2px 7px; }
+  .chip small{ color:var(--text-muted); font-family:'IBM Plex Sans', sans-serif; margin-left:5px; }
+  .chip.bad{ border-color:var(--alert); color:var(--alert); }
+  .status{ font-size:12.5px; color:var(--text-muted); margin-top:8px; min-height:18px; }
+  .status b{ color:var(--text-primary); }
+  .status .warn, .status.warn{ color:var(--alert); }
+  .fine{ margin:10px 4px 0; font-size:11px; line-height:1.6; color:var(--text-muted); }
+
+  /* section 2 spans the window (Wayne); the expand button makes it fill the screen */
+  #sec2{ margin-left:0; margin-right:0; }
+  .ctrls{ display:flex; flex-wrap:wrap; gap:8px 14px; align-items:center; font-size:12.5px; color:var(--text-muted); margin-bottom:8px; }
+  .seg{ display:inline-flex; border:1px solid var(--bezel-hi); border-radius:6px; overflow:hidden; vertical-align:middle; }
+  .seg button{ background:transparent; border:0; color:var(--text-muted); font:500 12.5px 'IBM Plex Mono', monospace; padding:6px 10px; cursor:pointer; }
+  .seg button+button{ border-left:1px solid var(--bezel-hi); }
+  .seg button.on{ background:var(--blue); color:var(--bg-deep); }
+  .ctrls label{ display:inline-flex; gap:5px; align-items:center; cursor:pointer; }
+  .ctrls select{ background:var(--bg-deep); color:var(--text-primary); border:1px solid var(--bezel-hi); border-radius:6px; font:500 12.5px 'IBM Plex Mono', monospace; padding:4px 6px; }
+  .body2{ display:grid; grid-template-columns:minmax(0,1.6fr) minmax(300px,1fr); border:1px solid var(--bezel); border-radius:8px; overflow:hidden; }
+  #map{ height:calc(100vh - 170px); height:calc(100dvh - 170px); min-height:420px; background:#0d1117; }
+  .list{ height:calc(100vh - 170px); height:calc(100dvh - 170px); min-height:420px; overflow:auto; border-left:1px solid var(--bezel); }
+  .list .cnt{ font-size:11.5px; color:var(--text-muted); padding:8px 12px; border-bottom:1px solid var(--bezel); position:sticky; top:0; background:var(--bg-panel); z-index:1; }
+  .row{ padding:8px 12px; border-bottom:1px solid var(--bezel); cursor:pointer; font-size:12.5px; line-height:1.4; }
+  .row:hover{ background:rgba(245,166,35,.06); }
+  .row.sel{ background:rgba(127,214,238,.09); box-shadow:inset 3px 0 0 var(--blue); }
+  .row.note{ cursor:default; color:var(--text-muted); }
+  .row .top{ display:flex; justify-content:space-between; gap:8px; }
+  .row .code{ font:600 13.5px 'IBM Plex Mono', monospace; color:var(--amber); margin-right:6px; }
+  .row .code.icao{ color:var(--blue); }
+  .row .rng{ font-family:'IBM Plex Mono', monospace; white-space:nowrap; }
+  .row .sub{ color:var(--text-muted); font-size:11.5px; }
+  .tag{ white-space:nowrap; display:inline-block; font:500 10px 'IBM Plex Mono', monospace; border-radius:3px; padding:0 4px; margin-left:4px; border:1px solid; }
+  .tag.ok{ color:var(--teal); border-color:var(--teal); }
+  .tag.no{ color:var(--alert); border-color:var(--alert); }
+  .gaprow{ padding:8px 12px; border-bottom:1px solid var(--bezel); font-size:12px; color:var(--alert); background:rgba(224,112,95,.07); }
+  .foot2{ font-size:11px; color:var(--text-muted); padding:8px 2px 0; line-height:1.5; }
+  .legend{ display:inline-flex; gap:10px; flex-wrap:wrap; }
+  .dot{ display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:4px; vertical-align:-1px; }
+  /* map markers: a dot with its code in a pill (never set position on a Leaflet marker icon class: App Conventions, Mexican Airstrips v0.91) */
+  .nr-m i{ position:absolute; inset:0; border-radius:50%; border:2px solid #10141a; box-shadow:0 0 0 1.5px rgba(255,255,255,.85), 0 1px 4px rgba(0,0,0,.6); }
+  .nr-m b{ position:absolute; left:calc(100% + 5px); top:50%; transform:translateY(-50%); white-space:nowrap; pointer-events:none;
+    background:rgba(16,20,26,.92); color:#fff; font:600 12px 'IBM Plex Mono', monospace; padding:1px 5px; border-radius:4px; border:1px solid rgba(255,255,255,.35); }
+  .nr-m.wp b{ color:#10141a; background:var(--amber); border-color:#10141a; }
+  .nr-m.icao b{ color:var(--blue); }
+  .nr-m.sel i{ box-shadow:0 0 0 3px var(--blue), 0 1px 4px rgba(0,0,0,.6); }
+  #map.far .nr-m.lab:not(.sel) b{ display:none; }
+  /* OpenTopoMap's elevation tint runs strong red at regional zooms; muted as in Mexican Airstrips' Nearby pop-up (v0.90) */
+  .topo-muted{ filter:saturate(.4) brightness(1.06); }
+  #map .leaflet-control-layers{ background:var(--bg-panel); color:var(--text-primary); border:1px solid var(--bezel-hi); font:12.5px 'IBM Plex Sans', sans-serif; }
+  #map .leaflet-bar a{ background:var(--bg-panel); color:var(--text-primary); border-bottom-color:var(--bezel-hi); display:flex; align-items:center; justify-content:center; }
+  #map .leaflet-bar a.on{ background:var(--blue); color:#10141a; }
+  #map .leaflet-control-scale-line{ background:rgba(16,20,26,.75); color:var(--text-primary); border-color:var(--text-muted); }
+  #map .leaflet-control-attribution{ background:rgba(16,20,26,.8); color:var(--text-muted); font-size:10px; }
+  #map .leaflet-popup-content-wrapper, #map .leaflet-popup-tip{ background:var(--bg-panel); color:var(--text-primary); }
+  #map .leaflet-popup-content{ font-size:12.5px; line-height:1.45; margin:10px 12px; }
+  #map .leaflet-popup-content .code{ font:600 13px 'IBM Plex Mono', monospace; color:var(--amber); }
+  #map .leaflet-popup-content .sub{ color:var(--text-muted); font-size:11.5px; }
+
+  /* full screen: the whole section fills the window; only the list scrolls (a map inside a scrolling box left tiles blank on iOS) */
+  #sec2.big{ position:fixed; inset:0; z-index:3000; margin:0; border-radius:0; border:0; display:flex; flex-direction:column; gap:0; padding:10px 12px;
+    padding-top:max(10px, env(safe-area-inset-top)); padding-bottom:max(10px, env(safe-area-inset-bottom)); }
+  #sec2.big .step-num{ display:none; }
+  #sec2.big .step-body{ flex:1; min-height:0; display:flex; flex-direction:column; }
+  #sec2.big .body2{ flex:1; min-height:0; }
+  #sec2.big #map, #sec2.big .list{ height:auto; min-height:0; }
+  #sec2.big .foot2{ display:none; }
+
+  @media (max-width:760px){
+    .body2{ grid-template-columns:1fr; }
+    #map{ height:58vh; min-height:300px; }
+    .list{ height:auto; min-height:0; border-left:0; border-top:1px solid var(--bezel); overflow:visible; }
+    .list .cnt{ position:static; }
+    #sec2.big .body2{ display:flex; flex-direction:column; }
+    #sec2.big #map{ flex:none; height:52%; }
+    #sec2.big .list{ flex:1; min-height:0; overflow:auto; }
+    #sec2.big .list .cnt{ position:sticky; }
+  }
+</style>
+<!-- GGP-FOOTER-CSS START v1.14 · 13-Nov-2026 · shared footer styles, App Conventions §5b · master: Control Panel repo tools/ggp-footer -->
+<style>
+.ggp-footer{
+  --ggp-amber:#f5a623; --ggp-muted:#8b93a1; --ggp-bezel:#2a323f; --ggp-bezel-hi:#3a4454;
+  box-sizing:border-box; width:100%; max-width:640px; margin:28px auto 0; padding:16px 0 8px;
+  border-top:1px solid var(--ggp-bezel); text-align:center;
+  font-family:'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size:11px; line-height:1.5; color:var(--ggp-muted);
+}
+.ggp-footer *, .ggp-footer *::before, .ggp-footer *::after{ box-sizing:border-box; }
+.ggp-footer .ggp-back{ margin:0 0 12px; }
+.ggp-footer .ggp-back a{
+  display:inline-block; padding:6px 14px; border:1px solid var(--ggp-bezel-hi); border-radius:5px;
+  background:var(--ggp-bezel); color:var(--ggp-amber); font-size:12px; font-weight:500; text-decoration:none;
+}
+.ggp-footer .ggp-back a:hover{ background:var(--ggp-bezel-hi); color:var(--ggp-amber); text-decoration:none; }
+.ggp-footer .ggp-extra{ margin:0 0 6px; text-wrap:balance; }
+.ggp-footer .ggp-credit{ margin:0; }
+.ggp-footer .ggp-extra a, .ggp-footer .ggp-credit a{
+  color:var(--ggp-muted); text-decoration:none; border-bottom:1px solid var(--ggp-bezel-hi); padding-bottom:1px;
+}
+.ggp-footer .ggp-extra a:hover, .ggp-footer .ggp-credit a:hover{ color:var(--ggp-amber); border-bottom-color:var(--ggp-amber); }
+.ggp-footer .ggp-count{ margin-top:6px; }
+.ggp-footer .ggp-count:empty{ display:none; }
+.ggp-footer .ggp-count a{ color:inherit; text-decoration:none; border-bottom:1px dotted var(--ggp-bezel-hi); padding-bottom:1px; }
+.ggp-footer .ggp-count a:hover{ color:var(--ggp-amber); border-bottom-color:var(--ggp-amber); }
+.ggp-footer .ggp-actions{ display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin-top:12px; }
+.ggp-footer .ggp-pill{
+  display:inline-flex; align-items:center; gap:7px; margin:0; padding:8px 16px;
+  border:1px solid var(--ggp-bezel-hi); border-radius:20px; background:transparent; color:var(--ggp-muted);
+  font:inherit; font-size:12.5px; line-height:1.2; cursor:pointer; transition:color .15s ease, border-color .15s ease;
+}
+.ggp-footer a.ggp-pill{ text-decoration:none; }
+/* v1.6: shown under a feedback button when no email app opened */
+.ggp-fb-note{ flex-basis:100%; margin:10px auto 0; max-width:460px; padding:10px 12px; border:1px solid #3a4454; border-radius:6px;
+  font:12px/1.5 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif; color:#8b93a1; text-align:center; }
+.ggp-fb-note b{ color:#e7e4dc; font-weight:500; user-select:all; }
+.ggp-fb-note button{ margin-left:8px; padding:3px 10px; border:1px solid #3a4454; border-radius:12px; background:transparent;
+  color:#f5a623; font:inherit; cursor:pointer; }
+.ggp-footer .ggp-pill:hover{ color:var(--ggp-amber); border-color:var(--ggp-amber); background:transparent; }
+.ggp-footer .ggp-pill svg{ width:15px; height:15px; flex-shrink:0; }
+.ggp-footer .ggp-pill span{ text-wrap:balance; }
+@media (max-width:400px){ .ggp-footer .ggp-pill{ font-size:12px; padding:8px 12px; gap:6px; } }
+.ggp-footer a:focus-visible, .ggp-footer .ggp-pill:focus-visible{ outline:2px solid var(--ggp-amber); outline-offset:2px; }
+@media print{
+  .ggp-footer .ggp-back, .ggp-footer .ggp-extra, .ggp-footer .ggp-count, .ggp-footer .ggp-actions{ display:none !important; }
+  .ggp-footer{ border-top:0; margin-top:8px; padding-top:0; }
+}
+</style>
+<!-- GGP-FOOTER-CSS END -->
+</head>
+<body>
+<div class="rig">
+  <div class="title-row">
+    <h1>Planning Emergency Airstrips in Mexico</h1>
+    <span class="ver mono">v0.1</span>
+  </div>
+  <p class="purpose-line"><span class="purpose-label">Purpose:</span> Enter a route across Mexico and see the airstrips along it, filtered by runway length, surface and permit, so you know your options before you go.</p>
+
+  <section class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <h2>Route</h2>
+      <p class="hint">Waypoints separated by spaces: ICAO airports (MMLT, KSDM), VOR/NDB idents (SQN), AFAC airstrips with an X in front (XSQA; a bare 3-letter ident is taken as a navaid first, as in ForeFlight), or coordinates (2830N11030W or 28.5/-110.5). Where an ident fits more than one place, the one nearest the previous waypoint is used.</p>
+      <div class="q-row"><input class="fld" id="route" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="KSDM MMSF MMLT" aria-label="Route"><button class="btn primary" id="go" type="button">Show route</button><button class="btn" id="clr" type="button">Clear</button></div>
+      <div class="chips" id="chips"></div>
+      <div class="status" id="rStatus" role="status" aria-live="polite">Loading AFAC's aerodrome list…</div>
+    </div>
+  </section>
+</div>
+
+<section class="step" id="sec2">
+  <div class="step-num">2</div>
+  <div class="step-body">
+    <h2>Airstrips along the route</h2>
+    <div class="ctrls">
+      <span>Within <span class="seg" id="cor" role="group" aria-label="Corridor"><button type="button" data-c="10">10</button><button type="button" data-c="25" class="on">25</button><button type="button" data-c="50">50 NM</button></span> of the route</span>
+      <label>Runway at least <select id="minLen"><option value="0">any</option><option value="610">2,000 ft</option><option value="914">3,000 ft</option><option value="1219">4,000 ft</option></select></label>
+      <label><input type="checkbox" id="paved"> Paved only</label>
+      <label><input type="checkbox" id="cur"> Current permit only</label>
+      <label><input type="checkbox" id="icao" checked> ICAO airports</label>
+    </div>
+    <div class="body2"><div id="map"></div><div class="list" id="list"></div></div>
+    <div class="foot2"><span class="legend"><span><span class="dot" style="background:var(--amber)"></span>route waypoint</span><span><span class="dot" style="background:#b9c2cf"></span>paved</span><span><span class="dot" style="background:#c08a52"></span>dirt / unpaved</span><span><span class="dot" style="background:#3fa7a0"></span>water</span><span><span class="dot" style="background:#6b7380"></span>surface not listed</span><span><span class="dot" style="background:#7fd6ee;border-radius:2px"></span>ICAO airport</span><span>hollow = permit not current</span><span><span style="display:inline-block;width:16px;border-top:3px solid #e0705f;vertical-align:3px;margin-right:4px"></span>longest stretch with nothing in the corridor</span></span><br>
+    Distance along the route and off course (left or right of the course line) in NM. Airstrips, elevations and lengths as AFAC's list gives them (<span id="afacEd">current</span> edition); AFAC's figures are sometimes wrong, and an airstrip on this list is not a known-safe landing spot. To draw one for ForeFlight, Garmin Pilot or X-Plane, look it up in <a href="https://airfield-kml-builder.netlify.app/" target="_blank" rel="noopener">Mexican Airstrips for your EFB and Sim</a>.</div>
+  </div>
+</section>
+
+<div class="rig">
+  <p class="fine">Not for navigation. A planning aid only. Data: AFAC's "Aeródromos y helipuertos" list (gob.mx), Mexico's official airport list with positions from <a href="https://ourairports.com/data/" target="_blank" rel="noopener">OurAirports</a>, and OurAirports navaids and US airports (public domain). With thanks to <a href="https://airports.robrc.net/" target="_blank" rel="noopener">airports.robrc.net</a>, which showed the way to AFAC's data. Check every airstrip against current official sources, recent pilot reports and your own eyes.</p>
+  <!-- GGP-FOOTER START v1.14 · 13-Nov-2026 · shared footer, App Conventions §5a · master: Control Panel repo tools/ggp-footer -->
+<footer class="ggp-footer">
+  <div class="ggp-back"><a href="https://geezer-geek-pilot-control-panel.netlify.app/">&larr; Back to GeezerGeek Pilot Apps</a></div>
+  <div class="ggp-credit">Wayne McClelland (<a href="https://geezer-geek-pilot-control-panel.netlify.app/airports/" target="_blank" rel="noopener">airports visited</a>), <a href="https://youtube.com/@GeezerGeekPilot" target="_blank" rel="noopener">GeezerGeek Pilot</a>, <a href="https://geezer-geek-pilot-control-panel.netlify.app/reference" target="_blank" rel="noopener">Reference Materials</a></div>
+  <div class="ggp-actions">
+    <button class="ggp-pill ggp-share" type="button"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="10.5" x2="15.4" y2="6.5"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/></svg><span>Share GeezerGeek Pilot Apps with pilot friends</span></button>
+    <button class="ggp-pill ggp-feedback" type="button" data-app="Planning Emergency Airstrips in Mexico"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>Feedback to GeezerGeek Pilot</span></button>
+    <a class="ggp-pill ggp-videos" href="https://www.youtube.com/playlist?list=PLZEU99ONr5bE" target="_blank" rel="noopener"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="4"/><polygon points="10 9 15 12 10 15" fill="currentColor"/></svg><span>YouTube intros to the apps</span></a>
+  </div>
+</footer>
+<!-- GGP-FOOTER END -->
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+  const title = s => String(s || '').toLowerCase().replace(/(^|[\s(\/.-])(\p{L})/gu, (a, b, c) => b + c.toUpperCase());
+  const ft = m => Math.round(m * 3.28084).toLocaleString('en-US');
+  const nm0 = n => Math.round(n).toLocaleString('en-US');
+  const pad2 = v => /^\d$/.test(v) ? '0' + v : v;
+  const surfCat = s => { s = (s || '').toUpperCase(); if (!s) return null; if (/ASFALT|PAVIMENTO|CONCRET|CEMENTO/.test(s)) return 'paved'; if (/AGUA|ACUAT/.test(s)) return 'water'; return 'dirt'; };
+  const KEY = 'mxEmergency.v1';
+  // AFAC permit status in English (as in Mexican Airstrips' record translation)
+  const permitEn = st => { const t = (st || '').toUpperCase();
+    return /^VIGENTE/.test(t) ? 'current' : /INOPERATIVO/.test(t) ? 'not operating' : /CERRADO/.test(t) ? 'closed by NOTAM' : /TRAMITE/.test(t) ? 'in process' : 'not current'; };
+
+  let STR = [], ICAO = [], NAV = [], US = [];
+  let W = [], corridor = 25, rows = [], selLine = null;
+
+  // ---------- geometry (NM) ----------
+  const R = 3440.065, k = Math.PI / 180;
+  const gc = (a, b) => { const p1 = a.lat * k, p2 = b.lat * k, dl = (b.lon - a.lon) * k; return 2 * R * Math.asin(Math.sqrt(Math.sin((p2 - p1) / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2)); };
+  const proj = (p, ref) => [(p.lon - ref.lon) * k * R * Math.cos(ref.lat * k), (p.lat - ref.lat) * k * R];
+  const routeLen = () => W.reduce((s, w, i) => i ? s + gc(W[i - 1], w) : 0, 0);
+  // where point p sits against the route: along-track NM from the start, cross-track NM, side of the course, foot point on the route
+  function onRoute(p){
+    let best = null, acc = 0;
+    for (let i = 0; i < W.length - 1; i++){
+      const a = W[i], b = W[i + 1], ref = { lat:(a.lat + b.lat) / 2, lon:(a.lon + b.lon) / 2 };
+      const A = proj(a, ref), B = proj(b, ref), P = proj(p, ref), dx = B[0] - A[0], dy = B[1] - A[1], L2 = dx * dx + dy * dy || 1e-9;
+      let t = ((P[0] - A[0]) * dx + (P[1] - A[1]) * dy) / L2; t = Math.max(0, Math.min(1, t));
+      const fx = A[0] + t * dx, fy = A[1] + t * dy, d = Math.hypot(P[0] - fx, P[1] - fy);
+      const side = dx * (P[1] - A[1]) - dy * (P[0] - A[0]) > 0 ? 'L' : 'R';
+      const segLen = gc(a, b);
+      if (!best || d < best.xt) best = { xt:d, side, along:acc + t * segLen, foot:{ lat:a.lat + t * (b.lat - a.lat), lon:a.lon + t * (b.lon - a.lon) } };
+      acc += segLen;
+    }
+    return best;
+  }
+  function pointAt(d){ let acc = 0; for (let i = 0; i < W.length - 1; i++){ const L = gc(W[i], W[i + 1]); if (acc + L >= d){ const t = L ? (d - acc) / L : 0; return [W[i].lat + t * (W[i + 1].lat - W[i].lat), W[i].lon + t * (W[i + 1].lon - W[i].lon)]; } acc += L; } const z = W[W.length - 1]; return [z.lat, z.lon]; }
+  function slice(d0, d1){ const pts = [pointAt(d0)]; let acc = 0; for (let i = 0; i < W.length - 1; i++){ acc += gc(W[i], W[i + 1]); if (acc > d0 && acc < d1) pts.push([W[i + 1].lat, W[i + 1].lon]); } pts.push(pointAt(d1)); return pts; }
+
+  // ---------- route parsing ----------
+  function parseCoord(t){
+    let m = t.match(/^(-?\d{1,2}(?:\.\d+)?)[\/,](-?\d{1,3}(?:\.\d+)?)$/);
+    if (m) return { lat:+m[1], lon:+m[2] };
+    m = t.match(/^(\d{2})(\d{2})(\d{2})?([NS])(\d{3})(\d{2})(\d{2})?([EW])$/);
+    if (m) return { lat:(+m[1] + +m[2] / 60 + (+m[3] || 0) / 3600) * (m[4] === 'S' ? -1 : 1), lon:(+m[5] + +m[6] / 60 + (+m[7] || 0) / 3600) * (m[8] === 'W' ? -1 : 1) };
+    return null;
+  }
+  function candidates(t){
+    const c = [], x = /^X[A-Z0-9]{3}$/.test(t) ? t.slice(1) : null;
+    ICAO.forEach(a => { if (a.code === t) c.push({ ...a, type:'ICAO airport' }); });
+    US.forEach(a => { if (a[0] === t) c.push({ kind:'us', code:a[0], name:a[1], lat:a[2], lon:a[3], type:'US airport' }); });
+    if (c.length) return c;
+    // a bare 3-letter ident is a navaid first (as in ForeFlight); an AFAC airstrip when no navaid has it, or when typed with an X in front
+    if (!x) NAV.forEach(n => { if (n[0] === t) c.push({ kind:'nav', code:n[0], name:n[1], lat:n[3], lon:n[4], type:n[2] + (n[5] === 'US' ? ' (US)' : '') }); });
+    if (c.length) return c;
+    STR.forEach(s => { if (s.des && (s.des === t || s.des === x)) c.push({ ...s, type:'AFAC airstrip' }); });
+    return c;
+  }
+  function parseRoute(s){
+    const toks = s.toUpperCase().split(/\s+/).filter(t => t && t !== 'DCT');
+    const out = []; let prev = null;
+    toks.forEach((t, i) => {
+      const co = parseCoord(t);
+      if (co){ out.push({ code:t, name:'coordinates', type:'coordinates', ...co }); prev = out[out.length - 1]; return; }
+      const c = candidates(t);
+      if (!c.length){ out.push({ code:t, bad:true }); return; }
+      let ref = prev;
+      if (!ref) for (let j = i + 1; j < toks.length && !ref; j++){ const n = parseCoord(toks[j]) || candidates(toks[j])[0]; if (n) ref = n; }
+      if (ref && c.length > 1) c.sort((a, b) => gc(ref, a) - gc(ref, b));
+      out.push({ ...c[0], code:t, alts:c.length - 1 }); prev = out[out.length - 1];
+    });
+    return out;
+  }
+
+  // ---------- map ----------
+  const MEXICO = [[14.4, -118.5], [32.8, -86.6]];
+  const base = {
+    'Topo': L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom:17, subdomains:'abc', className:'topo-muted', attribution:'© OpenStreetMap contributors, SRTM · style © <a href="https://opentopomap.org" target="_blank" rel="noopener">OpenTopoMap</a> (CC-BY-SA)' }),
+    'Satellite': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom:19, attribution:'Imagery © Esri, Maxar, Earthstar Geographics, and the GIS User Community' }),
+    'Map': L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors' }),
+  };
+  const S = (() => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e){ return {}; } })();
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify({ base:S.base, route:$('route').value, cor:corridor, minLen:$('minLen').value, paved:$('paved').checked, cur:$('cur').checked, icao:$('icao').checked })); } catch (e){} };
+  const map = L.map('map', { preferCanvas:true, layers:[base[S.base] || base.Topo] }).fitBounds(MEXICO);
+  L.control.layers(base, null, { position:'topright' }).addTo(map);
+  L.control.scale({ imperial:true, metric:false, position:'topleft' }).addTo(map);
+  map.on('baselayerchange', e => { S.base = e.name; save(); });
+  const ICON_FIT = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/><circle cx="12" cy="12" r="2"/></svg>';
+  const ICON_BIG = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>';
+  const ICON_SMALL = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg>';
+  const ICON_MX = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 5.7 12 3z"/></svg>';
+  let bigBtn = null, isBig = false;
+  const Btns = L.Control.extend({ options:{ position:'topleft' }, onAdd(){
+    const bar = L.DomUtil.create('div', 'leaflet-bar');
+    const mk = (html, t, fn) => { const a = L.DomUtil.create('a', '', bar); a.href = '#'; a.innerHTML = html; a.title = t; a.setAttribute('role', 'button'); a.setAttribute('aria-label', t); L.DomEvent.on(a, 'click', e => { L.DomEvent.preventDefault(e); fn(); }); return a; };
+    mk(ICON_FIT, 'Zoom to the route', fitRoute);
+    mk(ICON_MX, 'Show all of Mexico', () => map.fitBounds(MEXICO));
+    bigBtn = mk(ICON_BIG, 'Fill the screen', () => setBig(!isBig));
+    L.DomEvent.disableClickPropagation(bar);
+    return bar;
+  } });
+  map.addControl(new Btns());
+  function fitRoute(){ if (W.length > 1) map.fitBounds(L.latLngBounds(W.map(w => [w.lat, w.lon])).pad(0.12)); else map.fitBounds(MEXICO); }
+  function setBig(on){
+    isBig = on; $('sec2').classList.toggle('big', on); document.body.classList.toggle('sec-big', on);
+    bigBtn.innerHTML = on ? ICON_SMALL : ICON_BIG; bigBtn.classList.toggle('on', on);
+    const t = on ? 'Back to the normal size (Esc)' : 'Fill the screen'; bigBtn.title = t; bigBtn.setAttribute('aria-label', t);
+    setTimeout(() => map.invalidateSize(), 60);
+  }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && isBig) setBig(false); });
+
+  const dotLayer = L.layerGroup().addTo(map), labLayer = L.layerGroup().addTo(map), routeLayer = L.layerGroup().addTo(map);
+  const colorOf = x => x.kind === 'icao' ? '#7fd6ee' : ({ paved:'#b9c2cf', water:'#3fa7a0', dirt:'#c08a52' }[surfCat(x.surf)] || '#6b7380');
+  const icon = (code, cls, style, sz) => L.divIcon({ className:'nr-m ' + cls, iconSize:[sz, sz], iconAnchor:[sz / 2, sz / 2], html:`<i style="${style}"></i><b>${esc(code)}</b>` });
+  function passes(x){
+    if (x.kind === 'icao') return $('icao').checked;
+    const min = +$('minLen').value;
+    if (min && (x.len || 0) < min) return false;
+    if ($('paved').checked && surfCat(x.surf) !== 'paved') return false;
+    if ($('cur').checked && !x.cur) return false;
+    return true;
+  }
+  function info(x){
+    if (x.kind === 'icao') return `<span class="code" style="color:#7fd6ee">${esc(x.code)}</span> ${esc(title(x.name))}<br><span class="sub">ICAO airport</span>`;
+    const rw = x.rwy ? 'RWY ' + x.rwy.split('/').map(pad2).join('/') : 'RWY —';
+    return `${x.des ? `<span class="code">${esc(x.des)}</span> ` : ''}${esc(title(x.name))}${x.des ? '' : ' <span class="sub">(no AFAC designator)</span>'}`
+      + `<br><span class="sub">${esc(title([x.muni, x.state].filter(Boolean).join(', ')))}<br>${x.elev != null ? ft(x.elev) + ' ft' : 'elev —'} · ${rw} · ${x.len ? ft(x.len) + ' ft' : 'length —'}${surfCat(x.surf) ? ' ' + surfCat(x.surf) : ''}</span>`
+      + `<br>${x.cur ? '<span class="tag ok">permit current</span>' : `<span class="tag no">${esc('permit ' + permitEn(x.status))}</span>`}`;
+  }
+  function render(fit){
+    dotLayer.clearLayers(); labLayer.clearLayers(); routeLayer.clearLayers();
+    if (selLine){ map.removeLayer(selLine); selLine = null; }
+    const all = STR.concat(ICAO).filter(passes);
+    const wpKey = p => p.lat.toFixed(4) + ',' + p.lon.toFixed(4), wpKeys = new Set(W.map(wpKey));
+    rows = [];
+    all.forEach(x => {
+      if (W.length < 2){
+        const c = colorOf(x), ok = x.kind === 'icao' || x.cur;
+        L.circleMarker([x.lat, x.lon], { radius:x.kind === 'icao' ? 4.5 : 3.5, color:'#10141a', weight:1, fillColor:c, fillOpacity:ok ? 1 : .35 }).bindPopup(info(x)).addTo(dotLayer);
+        return;
+      }
+      const o = onRoute(x);
+      if (o.xt > corridor){   // outside the corridor: a faint dot for context
+        L.circleMarker([x.lat, x.lon], { radius:2.5, stroke:false, fillColor:'#8b93a1', fillOpacity:.45 }).bindPopup(info(x)).addTo(dotLayer);
+        return;
+      }
+      if (wpKeys.has(wpKey(x))) return;
+      rows.push(Object.assign({}, x, o));
+    });
+    rows.sort((a, b) => a.along - b.along);
+    if (W.length < 2){
+      $('list').innerHTML = `<div class="cnt">${all.length.toLocaleString('en-US')} airstrips and airports with these filters</div><div class="row note">Enter a route above to list the ones along it. Tap a dot for its details.</div>`;
+      declutter(); return;
+    }
+    const total = routeLen();
+    // longest stretch with nothing in the corridor; route waypoints that are airports or airstrips count as landing spots
+    let acc = 0; const wpAlong = W.map((w, i) => (acc += i ? gc(W[i - 1], w) : 0, ['icao', 'us', 'afac'].includes(w.kind) ? acc : null)).filter(v => v != null);
+    const marks = [0, total, ...rows.map(r => r.along), ...wpAlong].sort((a, b) => a - b);
+    let gap = { len:0, a:0, b:0 };
+    for (let i = 1; i < marks.length; i++) if (marks[i] - marks[i - 1] > gap.len) gap = { len:marks[i] - marks[i - 1], a:marks[i - 1], b:marks[i] };
+    L.polyline(W.map(w => [w.lat, w.lon]), { color:'#10141a', weight:6, opacity:.5, interactive:false }).addTo(routeLayer);
+    L.polyline(W.map(w => [w.lat, w.lon]), { color:'#f5a623', weight:3, interactive:false }).addTo(routeLayer);
+    if (gap.len > 1) L.polyline(slice(gap.a, gap.b), { color:'#e0705f', weight:5, opacity:.9, interactive:false }).addTo(routeLayer);
+    W.forEach(w => L.marker([w.lat, w.lon], { icon:icon(w.code, 'wp', 'background:#f5a623', 14), keyboard:false, zIndexOffset:1000, title:`${w.code}: ${w.type}` }).addTo(routeLayer));
+    rows.forEach((x, i) => {
+      const c = colorOf(x), style = x.kind === 'icao' ? 'background:#7fd6ee;border-radius:2px' : x.cur ? `background:${c}` : `background:rgba(16,20,26,.55);border-color:${c}`;
+      const m = L.marker([x.lat, x.lon], { icon:icon(x.kind === 'icao' || x.des ? x.code : title(x.name), 'lab ' + (x.kind === 'icao' ? 'icao' : ''), style, 12), keyboard:false });
+      m.on('click', () => select(i, true)); m.addTo(labLayer); x.m = m;
+    });
+    $('list').innerHTML = `<div class="cnt">${rows.length} within ${corridor} NM of the ${nm0(total)} NM route · in route order</div>`
+      + (gap.len > 1 ? `<div class="gaprow">Longest stretch with nothing in the corridor: <b>${nm0(gap.len)} NM</b>, from ${nm0(gap.a)} to ${nm0(gap.b)} NM along the route (red on the map).</div>` : '')
+      + (rows.length ? '' : '<div class="row note">Nothing in the corridor with these filters.</div>')
+      + rows.map((x, i) => {
+        const sub = x.kind === 'icao' ? 'ICAO airport'
+          : [title([x.muni, x.state].filter(Boolean).join(', ')), x.elev != null ? ft(x.elev) + ' ft' : 'elev —', x.rwy ? 'RWY ' + x.rwy.split('/').map(pad2).join('/') : 'RWY —', x.len ? ft(x.len) + ' ft' + (surfCat(x.surf) ? ' ' + surfCat(x.surf) : '') : 'length —'].join(' · ');
+        const tag = x.kind === 'icao' ? '' : x.cur ? '<span class="tag ok">permit current</span>' : `<span class="tag no">${esc('permit ' + permitEn(x.status))}</span>`;
+        const label = x.kind !== 'icao' && !x.des ? `${esc(title(x.name))} <span class="sub">(no AFAC designator)</span>` : `<span class="code ${x.kind === 'icao' ? 'icao' : ''}">${esc(x.code)}</span>${esc(title(x.name))}`;
+        return `<div class="row" data-i="${i}"><div class="top"><span>${label}</span><span class="rng">${nm0(x.along)} NM · ${x.xt < 0.5 ? 'on course' : x.xt.toFixed(0) + ' NM ' + x.side}</span></div><div class="sub">${esc(sub)} ${tag}</div></div>`;
+      }).join('');
+    $('list').querySelectorAll('.row[data-i]').forEach(el => el.addEventListener('click', () => select(+el.dataset.i, false)));
+    if (fit) fitRoute();
+    declutter();
+  }
+  function declutter(){ $('map').classList.toggle('far', rows.length > 25 && map.getZoom() < 8); }
+  map.on('zoomend', declutter);
+  function select(i, fromMap){
+    const x = rows[i]; if (!x) return;
+    $('list').querySelectorAll('.row[data-i]').forEach(el => el.classList.toggle('sel', +el.dataset.i === i));
+    rows.forEach(y => { const el = y.m && y.m.getElement(); if (el) el.classList.toggle('sel', y === x); });
+    if (selLine) map.removeLayer(selLine);
+    selLine = L.polyline([[x.foot.lat, x.foot.lon], [x.lat, x.lon]], { color:'#7fd6ee', weight:2, dashArray:'4 5', interactive:false }).addTo(map);
+    if (fromMap){ const el = $('list').querySelector(`.row[data-i="${i}"]`); if (el) el.scrollIntoView({ block:'nearest', behavior:'smooth' }); }
+    else if (!map.getBounds().contains([x.lat, x.lon])) map.panTo([x.lat, x.lon]);
+  }
+  function go(fit = true){
+    const P = parseRoute($('route').value);
+    $('chips').innerHTML = P.map(p => p.bad ? `<span class="chip bad">${esc(p.code)}<small>not found</small></span>`
+      : `<span class="chip" title="${esc(p.name)}">${esc(p.code)}<small>${esc(p.type)}${p.alts ? ' · nearest of ' + (p.alts + 1) : ''}</small></span>`).join('');
+    W = P.filter(p => !p.bad);
+    const bad = P.filter(p => p.bad).length;
+    $('rStatus').className = 'status';
+    $('rStatus').innerHTML = W.length < 2 ? (P.length ? '<span class="warn">Need at least two waypoints the app can place.</span>' : '')
+      : `<b>${W.length} waypoints</b>, ${nm0(routeLen())} NM in great-circle legs.` + (bad ? ` <span class="warn">${bad} not found and left out.</span>` : '');
+    if (W.length < 2) W = [];
+    save(); render(fit);
+  }
+  $('go').addEventListener('click', () => go());
+  $('route').addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+  $('clr').addEventListener('click', () => { $('route').value = ''; $('chips').innerHTML = ''; $('rStatus').textContent = ''; W = []; save(); render(false); map.fitBounds(MEXICO); });
+  document.querySelectorAll('#cor button').forEach(b => b.addEventListener('click', () => {
+    corridor = +b.dataset.c; document.querySelectorAll('#cor button').forEach(x => x.classList.toggle('on', x === b)); save(); render(false);
+  }));
+  ['minLen', 'paved', 'cur', 'icao'].forEach(id => $(id).addEventListener('change', () => { save(); render(false); }));
+
+  // ---------- data ----------
+  async function load(){
+    if (S.cor) { corridor = +S.cor; document.querySelectorAll('#cor button').forEach(x => x.classList.toggle('on', +x.dataset.c === corridor)); }
+    if (S.minLen) $('minLen').value = S.minLen;
+    $('paved').checked = !!S.paved; $('cur').checked = !!S.cur; if (S.icao === false) $('icao').checked = false;
+    const q = new URLSearchParams(location.search).get('route');
+    $('route').value = q != null ? q.replace(/[+,]/g, ' ') : (S.route != null ? S.route : 'KSDM MMSF MMLT');
+    try {
+      const [afac, icao, nav, us] = await Promise.all([
+        fetch('/.netlify/functions/afac').then(r => r.json()),
+        fetch('data/mx-icao.json').then(r => r.json()),
+        fetch('data/navaids.json').then(r => r.json()),
+        fetch('data/us-airports.json').then(r => r.json()),
+      ]);
+      if (!afac.records) throw new Error(afac.error || 'no AFAC records');
+      STR = afac.records.filter(r => r.lat != null).map(r => ({ kind:'afac', code:r.des || title(r.name), des:r.des, name:r.name, muni:r.muni, state:r.state, elev:r.elev_m, lat:r.lat, lon:r.lon,
+        rwy:(r.rwy || []).some(v => /^\d/.test(v)) ? r.rwy.join('/') : '', len:r.len_m, surf:r.surf, cur:/^VIGENTE/.test(r.status || ''), status:r.status }));
+      ICAO = icao.airports.map(a => ({ kind:'icao', code:a.code, name:a.name, lat:a.lat, lon:a.lon }));
+      NAV = nav.navaids; US = us.airports;
+      if (afac.source && afac.source.edition) $('afacEd').textContent = afac.source.edition;
+      $('rStatus').textContent = '';
+      if ($('route').value.trim()) go(true); else render(false);
+    } catch (e){
+      $('rStatus').className = 'status warn';
+      $('rStatus').textContent = 'Could not load the aerodrome data (' + e.message + '). Try again in a minute.';
+    }
+  }
+
+  // ---- open counter (App Conventions §6b; Tally, counts silently, never blocks the app) ----
+  fetch('https://tally.yuki.sh/counters/wamware/emergency-airstrips-mexico', { method: 'POST' }).catch(() => {});
+
+  load();
+})();
+</script>
+<!-- GGP-FOOTER-JS START v1.14 · 13-Nov-2026 · shared footer script, App Conventions §6a/§6b · master: Control Panel repo tools/ggp-footer -->
+<script>
+(() => {
+  if (window.__ggpFooter) return;
+  window.__ggpFooter = true;
+  // Every app's footer share button shares the Control Panel, not the app itself.
+  const SHARE_URL   = 'https://geezer-geek-pilot-control-panel.netlify.app/';
+  const SHARE_TITLE = 'GeezerGeek Pilot Apps';
+  const SHARE_TEXT  = 'Planning, weather, ATC-practice and safety tools for GA pilots, from GeezerGeek Pilot.';
+  const flash = (btn) => {
+    if (btn.dataset.ggpBusy) return;
+    btn.dataset.ggpBusy = '1';
+    const label = btn.querySelector('span') || btn;
+    const original = label.textContent;
+    label.textContent = label === btn ? 'Link copied!' : 'Link copied to clipboard!';
+    setTimeout(() => { label.textContent = original; delete btn.dataset.ggpBusy; }, 2200);
+  };
+  // One listener on the document, so it also covers footers an app draws later and any other
+  // button given the ggp-share class.
+  document.addEventListener('click', async (ev) => {
+    const btn = ev.target instanceof Element ? ev.target.closest('.ggp-share') : null;
+    if (!btn) return;
+    ev.preventDefault();
+    if (navigator.share) {
+      try { await navigator.share({ title: SHARE_TITLE, text: SHARE_TEXT, url: SHARE_URL }); return; }
+      catch (err) { if (err && err.name === 'AbortError') return; /* else fall through */ }
+    }
+    try {
+      await navigator.clipboard.writeText(SHARE_URL);
+      flash(btn);
+    } catch (err) {
+      window.location.href = 'mailto:?subject=' + encodeURIComponent(SHARE_TITLE)
+        + '&body=' + encodeURIComponent(SHARE_TEXT + ' ' + SHARE_URL);
+    }
+  });
+  // v1.6 feedback: any element with class ggp-feedback opens an email to Wayne naming its data-app.
+  // If no email app takes over within ~1.5 s (page still focused), show the address with a Copy button.
+  document.addEventListener('click', (ev) => {
+    const btn = ev.target instanceof Element ? ev.target.closest('.ggp-feedback') : null;
+    if (!btn) return;
+    ev.preventDefault();
+    const addr = ['waynemcc', 'wamware.com'].join('@');
+    const app = btn.dataset.app || document.title;
+    const subject = 'GeezerGeek feedback: ' + app;
+    // v1.8: subject only, empty body (no page link or device string), per Wayne
+    let left = false;
+    const onLeave = () => { left = true; };
+    window.addEventListener('blur', onLeave, { once: true });
+    document.addEventListener('visibilitychange', onLeave, { once: true });
+    window.location.href = 'mailto:' + addr + '?subject=' + encodeURIComponent(subject);
+    setTimeout(() => {
+      window.removeEventListener('blur', onLeave);
+      document.removeEventListener('visibilitychange', onLeave);
+      if (left || !document.hasFocus()) return;           // an email app opened
+      const host = btn.parentElement;
+      if (host.querySelector('.ggp-fb-note')) return;
+      const note = document.createElement('div');
+      note.className = 'ggp-fb-note';
+      note.setAttribute('role', 'status');
+      note.innerHTML = 'No email app opened? Write to <b></b><button type="button">Copy address</button>';
+      note.querySelector('b').textContent = addr;
+      note.querySelector('button').addEventListener('click', async (e) => {
+        try { await navigator.clipboard.writeText(addr); e.target.textContent = 'Copied'; }
+        catch (err) { e.target.textContent = 'Select it above'; }
+      });
+      host.appendChild(note);
+    }, 1500);
+  });
+  // v1.12: every app also hits one shared Tally counter, so its `visitor` = unique visitors across all apps
+  // (the Open Counts page shows it as "unique since 10-Nov-2026"). Pages that are not apps carry
+  // data-ggp-all="off" on their footer. The Quiz draws its footer later, so a missing footer still counts.
+  if (!document.querySelector('.ggp-footer[data-ggp-all="off"]')) {
+    fetch('https://tally.yuki.sh/counters/wamware/ggp-all', { method: 'POST' }).catch(() => { /* never block the app */ });
+  }
+  // Open counter: shown only where the footer has #ggpCount (the Control Panel). Apps count silently.
+  const countEl = document.getElementById('ggpCount');
+  if (countEl) {
+    // v1.13: Tally (now "Tallyflare") moved to /counters/<ns>/<key>: POST records a visit and returns the
+    // counts, GET only reads. The old hits URLs return 404 since ~11-Nov-2026; counts carried over.
+    fetch('https://tally.yuki.sh/counters/wamware/geezer-geek-pilot-control-panel', { method: 'POST' })
+      .then(r => r.json())
+      .then(d => {
+        const base = parseInt(countEl.dataset.base, 10) || 0;  // pre-Tally opens, App Conventions §6b
+        const n = d && typeof d.visit === 'number' ? d.visit + base : null;
+        if (typeof n !== 'number') return;
+        const text = 'Opened ' + n.toLocaleString() + (n === 1 ? ' time' : ' times');
+        const href = countEl.dataset.href;   // v1.4: the count links to the open-counts page
+        if (href) {
+          const a = document.createElement('a');
+          a.href = href; a.textContent = text; a.title = 'Open counts for every app';
+          countEl.replaceChildren(a);
+        } else countEl.textContent = text;
+      })
+      .catch(() => { /* counter is a nice-to-have, never block the app */ });
+  }
+})();
+</script>
+<!-- GGP-FOOTER-JS END -->
+</body>
+</html>
