@@ -1,5 +1,8 @@
 <!DOCTYPE html>
-<!-- Planning Emergency Airstrips in Mexico v0.5 (23-Nov-2026): route entry takes fix/radial/distance as ForeFlight does,
+<!-- Planning Emergency Airstrips in Mexico v0.6 (23-Nov-2026): fix/radial/distance uses the current variation (WMM-2025)
+     at the fix for VORs too, not the VOR's station declination: Wayne's PPE/110/30 test in ForeFlight put ForeFlight's point
+     about 1 NM northeast of ours (13°E station declination vs 9.7°E WMM-2025 today), so ForeFlight uses current variation.
+     v0.5 (23-Nov-2026): route entry takes fix/radial/distance as ForeFlight does,
      PPE/110/30 or PPE110030 (any fix the app knows, or coordinates); radial magnetic, from the VOR's station declination
      (OurAirports slaved variation, added to navaids.json by tools/build-data.py), else WMM-2025 at the fix (Wayne).
      v0.4 (23-Nov-2026): pack route and corridor bolder and fully opaque, in orange
@@ -248,7 +251,7 @@
 <div class="rig">
   <div class="title-row">
     <h1>Planning Emergency Airstrips in Mexico</h1>
-    <span class="ver mono">v0.5</span>
+    <span class="ver mono">v0.6</span>
   </div>
   <p class="purpose-line"><span class="purpose-label">Purpose:</span> Enter a route across Mexico and see the airstrips along it, filtered by runway length, surface and permit, so you know your options before you go.</p>
 
@@ -256,7 +259,7 @@
     <div class="step-num">1</div>
     <div class="step-body">
       <h2>Route</h2>
-      <p class="hint">Waypoints separated by spaces: ICAO airports (MMLT, KSDM), VOR/NDB idents (SQN), AFAC airstrips with an X in front (XSQA; a bare 3-letter ident is taken as a navaid first, as in ForeFlight), coordinates (2830N11030W or 28.5/-110.5), or fix/radial/distance (PPE/110/30: 30 NM out on PPE's 110 radial, magnetic, using the VOR's station declination). Where an ident fits more than one place, the one nearest the previous waypoint is used.</p>
+      <p class="hint">Waypoints separated by spaces: ICAO airports (MMLT, KSDM), VOR/NDB idents (SQN), AFAC airstrips with an X in front (XSQA; a bare 3-letter ident is taken as a navaid first, as in ForeFlight), coordinates (2830N11030W or 28.5/-110.5), or fix/radial/distance (PPE/110/30: 30 NM out on PPE's 110 radial, magnetic, with today's variation at the fix, as ForeFlight places it). Where an ident fits more than one place, the one nearest the previous waypoint is used.</p>
       <div class="q-row"><input class="fld" id="route" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="KSDM MMSF MMLT" aria-label="Route"><button class="btn primary" id="go" type="button">Show route</button><button class="btn" id="clr" type="button">Clear</button></div>
       <div class="chips" id="chips"></div>
       <div class="status" id="rStatus" role="status" aria-live="polite">Loading AFAC's aerodrome list…</div>
@@ -384,8 +387,7 @@
     return c;
   }
   // v0.5: fix/radial/distance, as ForeFlight takes it: PPE/110/30 (or ICAO style PPE110030) = 30 NM out on PPE's 110 radial.
-  // The radial is magnetic: a VOR's own station declination (OurAirports slaved variation, what its published radials use),
-  // else WMM-2025 at the fix (airports, NDBs, coordinates).
+  // The radial is magnetic, turned to true with the current variation at the fix (WMM-2025), as ForeFlight does (v0.6).
   function parseFRD(t, prev){
     let m = t.match(/^([^\/]+)\/(\d{1,3})\/(\d{1,3}(?:\.\d+)?)$/) || t.match(/^([A-Z][A-Z0-9]{1,4})(\d{3})(\d{3})$/);
     if (!m) return null;
@@ -394,8 +396,10 @@
     const co = parseCoord(m[1]);
     let b = co ? { ...co, code:m[1], type:'coordinates' } : null;
     if (!b){ const c = candidates(m[1]); if (!c.length) return { code:t, bad:true }; if (prev && c.length > 1) c.sort((a, z) => gc(prev, a) - gc(prev, z)); b = c[0]; }
-    let dec = b.sv, src = 'station declination';
-    if (dec == null){ try { dec = window.WMM.declination(b.lat, b.lon, new Date()); src = 'WMM-2025'; } catch (e){ dec = 0; src = 'no variation data'; } }
+    // v0.6: current variation (WMM-2025) at the fix for every fix, VORs included: Wayne's PPE/110/30 test showed ForeFlight
+    // places it that way, not on the VOR's station declination (b.sv, kept in navaids.json, now unused)
+    let dec, src = 'WMM-2025';
+    try { dec = window.WMM.declination(b.lat, b.lon, new Date()); } catch (e){ dec = 0; src = 'no variation data'; }
     const tb = (rad % 360 + dec + 360) % 360 * k, la = b.lat * k, lo = b.lon * k, dr = d / R;
     const la2 = Math.asin(Math.sin(la) * Math.cos(dr) + Math.cos(la) * Math.sin(dr) * Math.cos(tb));
     const lo2 = lo + Math.atan2(Math.sin(tb) * Math.sin(dr) * Math.cos(la), Math.cos(dr) - Math.sin(la) * Math.sin(la2));
