@@ -1,5 +1,8 @@
 <!DOCTYPE html>
-<!-- Planning Emergency Airstrips in Mexico v0.6 (23-Nov-2026): fix/radial/distance uses the current variation (WMM-2025)
+<!-- Planning Emergency Airstrips in Mexico v0.7 (23-Nov-2026): a first visit opens on the Control Panel card's example route,
+     KSDM MMPE XSQA, with 25 NM, runway 2,000 ft or longer and current permit only (10 airstrips, 99 NM gap); saved settings
+     still win (Wayne).
+     v0.6 (23-Nov-2026): fix/radial/distance uses the current variation (WMM-2025)
      at the fix for VORs too, not the VOR's station declination: Wayne's PPE/110/30 test in ForeFlight put ForeFlight's point
      northeast of ours (13°E station declination vs 9.7°E WMM-2025 today), so ForeFlight uses current variation.
      v0.5 (23-Nov-2026): route entry takes fix/radial/distance as ForeFlight does,
@@ -251,7 +254,7 @@
 <div class="rig">
   <div class="title-row">
     <h1>Planning Emergency Airstrips in Mexico</h1>
-    <span class="ver mono">v0.6</span>
+    <span class="ver mono">v0.7</span>
   </div>
   <p class="purpose-line"><span class="purpose-label">Purpose:</span> Enter a route across Mexico and see the airstrips along it, filtered by runway length, surface and permit, so you know your options before you go.</p>
 
@@ -260,7 +263,7 @@
     <div class="step-body">
       <h2>Route</h2>
       <p class="hint">Waypoints separated by spaces: ICAO airports (MMLT, KSDM), VOR/NDB idents (SQN), AFAC airstrips with an X in front (XSQA; a bare 3-letter ident is taken as a navaid first, as in ForeFlight), coordinates (2830N11030W or 28.5/-110.5), or fix/radial/distance (PPE/110/30: 30 NM out on PPE's 110 radial, magnetic, with today's variation at the fix, as ForeFlight places it). Where an ident fits more than one place, the one nearest the previous waypoint is used.</p>
-      <div class="q-row"><input class="fld" id="route" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="KSDM MMSF MMLT" aria-label="Route"><button class="btn primary" id="go" type="button">Show route</button><button class="btn" id="clr" type="button">Clear</button></div>
+      <div class="q-row"><input class="fld" id="route" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="KSDM MMPE XSQA" aria-label="Route"><button class="btn primary" id="go" type="button">Show route</button><button class="btn" id="clr" type="button">Clear</button></div>
       <div class="chips" id="chips"></div>
       <div class="status" id="rStatus" role="status" aria-live="polite">Loading AFAC's aerodrome list…</div>
     </div>
@@ -657,11 +660,12 @@
   // ---------- data ----------
   async function load(){
     if (S.cor) { corridor = +S.cor; document.querySelectorAll('#cor button').forEach(x => x.classList.toggle('on', +x.dataset.c === corridor)); }
-    if (S.minLen) $('minLen').value = S.minLen;
-    $('paved').checked = !!S.paved; $('cur').checked = !!S.cur; $('terc').checked = !!S.terc; if (S.icao === false) $('icao').checked = false;
+    // v0.7: a first visit opens on the Control Panel card's example: KSDM MMPE XSQA, 25 NM, runway 2,000 ft+, current permit (Wayne)
+    $('minLen').value = S.minLen || '610';
+    $('paved').checked = !!S.paved; $('cur').checked = 'cur' in S ? !!S.cur : true; $('terc').checked = !!S.terc; if (S.icao === false) $('icao').checked = false;
     if (S.noList) setList(true);
     const q = new URLSearchParams(location.search).get('route');
-    $('route').value = q != null ? q.replace(/[+,]/g, ' ') : (S.route != null ? S.route : 'KSDM MMSF MMLT');
+    $('route').value = q != null ? q.replace(/[+,]/g, ' ') : (S.route != null ? S.route : 'KSDM MMPE XSQA');
     try {
       const [afac, icao, nav, us, irw] = await Promise.all([
         fetch('/.netlify/functions/afac').then(r => r.json()),
