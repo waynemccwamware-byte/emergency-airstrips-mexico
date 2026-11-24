@@ -216,7 +216,7 @@
     return k + '</Document></kml>\n';
   }
   function airstripsKml(name, items, opt){
-    let k = head(name) + lbl + style('cl', '#ffffff', 'ff', 1, null) + style('patcase', '#101820', 'c0', 5, null) + style('pat', PAT_COLOR, 'ff', 2, null) + style('vis', VIS_COLOR, 'ff', 3, null)
+    let k = head(name) + lbl + style('cl', '#ffffff', 'ff', 1, null) + style('patcase', '#101820', 'c0', 5, null) + style('pat', PAT_COLOR, 'ff', 2, null) + style('viscase', '#101820', 'c0', 6, null) + style('vis', VIS_COLOR, 'ff', 3, null)
       + `<Style id="tpa">${ico('blue', 0.6)}<LabelStyle><color>ffffffff</color><scale>0.9</scale></LabelStyle></Style>`
       + `<Style id="visfix">${ico('amber', 0.6)}<LabelStyle><color>${kmlColor(VIS_COLOR, 'ff')}</color><scale>0.85</scale></LabelStyle></Style>`
       + `<Style id="viswarn">${ico('red', 0.75)}<LabelStyle><color>${kmlColor('#e0705f', 'ff')}</color><scale>0.85</scale></LabelStyle></Style>\n`;
@@ -255,6 +255,7 @@
         const ah = dest(e.out, e.crs, 0.2 * NM_M), nm = `${wp} RWY ${e.id}${rw.labEst ? ' (est.)' : ''} visual (advisory)`;
         const geom = [...dashes([e.thr, e.out], 400, 220), [dest(ah, e.crs + 150, 160), ah, dest(ah, e.crs - 150, 160)]].map(LS).join('');
         const wtx = e.warn ? ` TERRAIN WITHIN ${Math.round(e.warn.c / 10) * 10} FT BELOW THE PATH ${e.warn.d} NM OUT.` : '';
+        k += `<Placemark><name>${esc(nm)}</name><styleUrl>#viscase</styleUrl><MultiGeometry>${geom}</MultiGeometry></Placemark>`;   // v0.15: dark casing under the amber (Wayne)
         k += `<Placemark><name>${esc(nm)}</name><description><![CDATA[<b>${esc(nm)}</b><br>Final ${Math.round(e.crs) || 360}° true, 3.00°, TCH 50 ft, ${e.len} NM${e.state === 'cut' ? ' (shortened: terrain beyond)' : ''}.${wtx} Threshold elevation ${e.thrFt.toLocaleString('en-US')} ft (terrain model).<br><br><b>${esc(VIS_CAUTION)}</b>]]></description><styleUrl>#vis</styleUrl><MultiGeometry>${geom}</MultiGeometry></Placemark>`;
         if (e.warn) k += `<Placemark><name>${esc(`${e.id} terrain ${e.warn.d}NM`)}</name><description><![CDATA[Terrain within ${Math.round(e.warn.c / 10) * 10} ft below the ${esc(nm)} path, ${e.warn.d} NM from the threshold (terrain model; no obstacles).<br><br><b>${esc(VIS_CAUTION)}</b>]]></description><styleUrl>#viswarn</styleUrl><Point><coordinates>${C5([e.warn.p])}</coordinates></Point></Placemark>`;
         e.marks.forEach(f => { k += `<Placemark><name>${esc(`${e.id} ${Number.isInteger(f.d) ? f.d : f.d.toFixed(1)}NM ${f.alt.toLocaleString('en-US')}'`)}</name><description><![CDATA[${esc(nm)}: ${f.d} NM from the threshold, ${f.alt.toLocaleString('en-US')} ft MSL (${f.above.toLocaleString('en-US')} ft above the threshold).<br><br><b>${esc(VIS_CAUTION)}</b>]]></description><styleUrl>#visfix</styleUrl><Point><coordinates>${C5([f.p])}</coordinates></Point></Placemark>`; });
