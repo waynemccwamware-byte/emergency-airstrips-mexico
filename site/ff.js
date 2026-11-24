@@ -217,7 +217,7 @@
   }
   function airstripsKml(name, items, opt){
     let k = head(name) + lbl + style('cl', '#ffffff', 'ff', 1, null) + style('pat', PAT_COLOR, 'ff', 2, null) + style('vis', VIS_COLOR, 'ff', 3, null)
-      + `<Style id="tpa"><IconStyle><scale>0</scale></IconStyle><LabelStyle><color>ffffffff</color><scale>0.9</scale></LabelStyle></Style>`
+      + `<Style id="tpa">${ico('blue', 0.6)}<LabelStyle><color>ffffffff</color><scale>0.9</scale></LabelStyle></Style>`
       + `<Style id="visfix">${ico('amber', 0.6)}<LabelStyle><color>${kmlColor(VIS_COLOR, 'ff')}</color><scale>0.85</scale></LabelStyle></Style>`
       + `<Style id="viswarn">${ico('red', 0.75)}<LabelStyle><color>${kmlColor('#e0705f', 'ff')}</color><scale>0.85</scale></LabelStyle></Style>\n`;
     Object.entries(SURF).forEach(([s, hex]) => { k += style('rw_' + s, '#ffffff', 'ff', 1.5, hex, 'ff'); });
@@ -239,8 +239,9 @@
       withRw.forEach(({ r, rw, wp }) => {
         const tpa = tpaFt(r);
         patterns(rw).forEach(P => {
-          const geom = [...P.lines.flatMap(l => dashes(l, 150, 100)), ...P.arrows.map(a => arrow(a)), ...P.dots.map(d => ring(d))].map(LS).join('');
+          const geom = [...P.lines.flatMap(l => dashes(l, 150, 100)), ...P.arrows.map(a => arrow(a)), ].map(LS).join('');   // v0.13: midfield dot = filled light-blue icon on the TPA point, not a hollow ring (Wayne)
           k += `<Placemark><name>${esc(wp + ' ' + P.name)}</name><description><![CDATA[${esc(P.name)}, pattern width ${PAT_W} NM; dot abeam midfield. ${tpa != null ? `TPA assumed 1,000 ft AGL ≈ ${tpa.toLocaleString('en-US')} ft MSL` : 'AFAC gives no elevation'}. AFAC publishes no pattern direction. NOT FOR NAVIGATION.]]></description><styleUrl>#pat</styleUrl><MultiGeometry>${geom}</MultiGeometry></Placemark>`;
+          P.dots.forEach(d => { if (tpa == null) k += `<Placemark><name></name><styleUrl>#tpa</styleUrl><Point><coordinates>${C5([d])}</coordinates></Point></Placemark>`; });
           if (tpa != null) P.dots.forEach(d => { k += `<Placemark><name>TPA ${tpa.toLocaleString('en-US')}'</name><styleUrl>#tpa</styleUrl><Point><coordinates>${C5([d])}</coordinates></Point></Placemark>`; });
         });
       });
