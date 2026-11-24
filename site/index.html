@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<!-- Planning Emergency Airstrips in Mexico v0.9 (23-Nov-2026): offline notes (Wayne: pilots without a connection must not expect data
+<!-- Planning Emergency Airstrips in Mexico v0.10 (23-Nov-2026): inverted amber notice under the purpose line (web app, plan on the ground, in flight only what's installed in ForeFlight); Show route with an empty box uses the example route in the placeholder (Wayne: after Clear it did nothing).
+     v0.9 (23-Nov-2026): offline notes (Wayne: pilots without a connection must not expect data
      that isn't on the device). Footer: needs an internet connection, use on the ground, in flight rely only on the installed ForeFlight pack;
      "Before you fly" box under the ready pack (finish the install, test in airplane mode, only ticked airstrips go, snapshot as of the build
      date, download ForeFlight's own maps); each PDF record says it's a snapshot from that build and edition; the longest stretch with nothing in
@@ -87,6 +88,8 @@
   .title-row .ver{ font-size:11px; color:var(--text-muted); }
   .purpose-line{ font-size:12.5px; color:var(--teal); margin:4px 4px 10px; line-height:1.5; }
   .purpose-label{ color:var(--text-primary); }
+  .web-note{ margin:0 4px 12px; padding:8px 12px; border-radius:8px; background:var(--amber); color:#1a1200; font-size:12.5px; line-height:1.45; }   /* v0.10: inverted amber offline notice (Wayne) */
+  .web-note b{ color:#1a1200; }
   .step{ display:grid; grid-template-columns:26px minmax(0,1fr); gap:10px; padding:12px 14px; margin-top:10px;
     background:var(--bg-panel); border:1px solid var(--bezel-hi); border-radius:10px;
     box-shadow:inset 0 1px 0 rgba(255,255,255,0.03), 0 8px 24px rgba(0,0,0,0.35); }
@@ -282,9 +285,10 @@
 <div class="rig">
   <div class="title-row">
     <h1>Planning Emergency Airstrips in Mexico</h1>
-    <span class="ver mono">v0.9</span>
+    <span class="ver mono">v0.10</span>
   </div>
   <p class="purpose-line"><span class="purpose-label">Purpose:</span> Enter a route across Mexico and see the airstrips along it, filtered by runway length, surface and permit, so you know your options before you go.</p>
+  <p class="web-note"><b>Web app: plan on the ground.</b> It needs an internet connection and keeps nothing for offline use. In flight, you have only what you've installed in ForeFlight.</p>
 
   <section class="step">
     <div class="step-num">1</div>
@@ -774,6 +778,8 @@
     else if (!map.getBounds().contains([x.lat, x.lon])) map.panTo([x.lat, x.lon]);
   }
   function go(fit = true){
+    // v0.10: an empty box shows the example route in its placeholder (Wayne: after Clear, Show route did nothing)
+    if (!$('route').value.trim()) $('route').value = $('route').placeholder;
     const P = parseRoute($('route').value);
     $('chips').innerHTML = P.map(p => p.bad ? `<span class="chip bad">${esc(p.code)}<small>not found</small></span>`
       : `<span class="chip" title="${esc(p.name)}">${esc(p.code)}<small>${esc(p.type)}${p.alts ? ' · nearest of ' + (p.alts + 1) : ''}</small></span>`).join('');
