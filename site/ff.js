@@ -190,7 +190,7 @@
   // default pin — only the airstrip waypoints keep the pin (Wayne, 24-Nov-2026)
   // v0.16: colored dots = white PNG + IconStyle <color>, so ForeFlight (it appears) colors the label tag to match (Mexican Airstrips v1.03)
   const DOT_HEX = { amber: '#ffb000', red: '#e0705f', blue: '#33d1ff' };
-  const ico = (n, sc) => `<IconStyle>${DOT_HEX[n] ? `<color>${kmlColor(DOT_HEX[n], 'ff')}</color>` : ''}<scale>${sc}</scale><Icon><href>files/ggp-dot-${DOT_HEX[n] ? 'white' : n}.png</href></Icon></IconStyle>`;
+  const ico = (n, sc) => `<IconStyle>${DOT_HEX[n] ? `<color>${kmlColor(DOT_HEX[n], 'ff')}</color>` : ''}<scale>${sc}</scale><Icon><href>files/ggp-dot-${n}.png</href></Icon></IconStyle>`;   // v0.17: ForeFlight colors the tag from <color> but doesn't tint the PNG, so colored PNGs stay
   const lbl = `<Style id="lbl">${ico('white', 0.7)}<LabelStyle><scale>1.0</scale></LabelStyle></Style>`;
   // v0.3 (Wayne): route and corridor dashed and thinner than in the app, so they don't clutter ForeFlight's map
   // v0.4 (Wayne): bolder, fully opaque orange; route and corridor are separate files (separate Map Layers toggles)
