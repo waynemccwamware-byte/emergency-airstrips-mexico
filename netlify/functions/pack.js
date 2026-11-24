@@ -1,5 +1,5 @@
 // Planning Emergency Airstrips in Mexico — copied 23-Nov-2026 from Mexican Airstrips for your EFB and Sim (airfield-kml-builder repo,
-// netlify/functions/pack.js, v0.94); limits raised for route packs (300,000-character payload, 8 MB unzipped). Original notes:
+// netlify/functions/pack.js, v0.94); limits raised for route packs (300,000-character payload, 8 MB unzipped; v0.8: up to 302 files, for one AFAC record PDF per airstrip — the copied 8-file cap failed a KSBA–MMLT pack). Original notes:
 // Mexican Airstrips for your EFB and Sim (formerly Airfield KML Builder) — serve a ForeFlight content pack (.zip) the page built, from a real URL (v0.24).
 //
 // Why: a KML with shapes always imports as a User Map Layer, so its points can't be used in a route.
@@ -122,7 +122,8 @@ exports.handler = async (event) => {
       if (/\.kml$/.test(path) && !/^<\?xml[\s\S]*<kml[\s>]/.test(text)) throw new Error('not a KML document: ' + path);
       files.push([path, text]);
     }
-    if (!files.length || files.length > 8) throw new Error('no files');
+    if (!files.length) throw new Error('no files');
+    if (files.length > 302) throw new Error('too many files (' + files.length + '): untick some airstrips');   // v0.8: one AFAC record PDF per airstrip (was 8)
     const body = zip(files);
     return {
       statusCode: 200,
