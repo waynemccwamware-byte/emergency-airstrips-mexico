@@ -186,11 +186,14 @@
   const LS = pts => `<LineString><tessellate>1</tessellate><coordinates>${C5(pts)}</coordinates></LineString>`;
   const head = name => `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document>\n<name>${esc(name)}</name>\n`;
   const style = (id, hex, a, w, fill, fa) => `<Style id="${id}"><LineStyle><color>${kmlColor(hex, a)}</color><width>${w}</width></LineStyle>${fill ? `<PolyStyle><color>${kmlColor(fill, fa)}</color></PolyStyle>` : '<PolyStyle><fill>0</fill></PolyStyle>'}</Style>`;
-  const lbl = `<Style id="lbl"><IconStyle><scale>0.6</scale></IconStyle><LabelStyle><scale>1.0</scale></LabelStyle></Style>`;
+  // v0.10: map-layer points are small dots (files/ggp-dot-*.png; pack.js turns the layer into a .kmz with them), not ForeFlight's
+  // default pin — only the airstrip waypoints keep the pin (Wayne, 24-Nov-2026)
+  const ico = (n, sc) => `<IconStyle><scale>${sc}</scale><Icon><href>files/ggp-dot-${n}.png</href></Icon></IconStyle>`;
+  const lbl = `<Style id="lbl">${ico('white', 0.45)}<LabelStyle><scale>1.0</scale></LabelStyle></Style>`;
   // v0.3 (Wayne): route and corridor dashed and thinner than in the app, so they don't clutter ForeFlight's map
   // v0.4 (Wayne): bolder, fully opaque orange; route and corridor are separate files (separate Map Layers toggles)
   function routeKml(name, W, a = {}){
-    let k = head(name) + style('route', '#ff7a1a', 'ff', 3, null) + style('gap', '#e0302a', 'ff', 4, null) + `<Style id="gaplbl"><IconStyle><color>ff2a30e0</color><scale>0.6</scale></IconStyle><LabelStyle><color>ff2a30e0</color><scale>1.0</scale></LabelStyle></Style>\n`;
+    let k = head(name) + style('route', '#ff7a1a', 'ff', 3, null) + style('gap', '#e0302a', 'ff', 4, null) + `<Style id="gaplbl">${ico('red', 0.5)}<LabelStyle><color>ff2a30e0</color><scale>1.0</scale></LabelStyle></Style>\n`;
     const route = W.map(w => [w.lat, w.lon]);
     k += `<Placemark><name>Route ${esc(W.map(w => w.code).join(' '))}</name><description><![CDATA[Route from Planning Emergency Airstrips in Mexico. NOT FOR NAVIGATION.]]></description><styleUrl>#route</styleUrl><MultiGeometry>${dashPath(route, 3 * NM_M, 1 * NM_M).map(LS).join('')}</MultiGeometry></Placemark>\n`;
     // v0.9: the longest stretch with nothing in the corridor always goes out with the route (Wayne), dashed red, labeled with its length
@@ -215,8 +218,8 @@
   function airstripsKml(name, items, opt){
     let k = head(name) + lbl + style('cl', '#ffffff', 'ff', 1, null) + style('pat', PAT_COLOR, 'ff', 2, null) + style('vis', VIS_COLOR, 'ff', 3, null)
       + `<Style id="tpa"><IconStyle><scale>0</scale></IconStyle><LabelStyle><color>ffffffff</color><scale>0.9</scale></LabelStyle></Style>`
-      + `<Style id="visfix"><IconStyle><color>${kmlColor(VIS_COLOR, 'ff')}</color><scale>0.5</scale></IconStyle><LabelStyle><color>${kmlColor(VIS_COLOR, 'ff')}</color><scale>0.85</scale></LabelStyle></Style>`
-      + `<Style id="viswarn"><IconStyle><color>${kmlColor('#e0705f', 'ff')}</color><scale>0.6</scale></IconStyle><LabelStyle><color>${kmlColor('#e0705f', 'ff')}</color><scale>0.85</scale></LabelStyle></Style>\n`;
+      + `<Style id="visfix">${ico('amber', 0.4)}<LabelStyle><color>${kmlColor(VIS_COLOR, 'ff')}</color><scale>0.85</scale></LabelStyle></Style>`
+      + `<Style id="viswarn">${ico('red', 0.5)}<LabelStyle><color>${kmlColor('#e0705f', 'ff')}</color><scale>0.85</scale></LabelStyle></Style>\n`;
     Object.entries(SURF).forEach(([s, hex]) => { k += style('rw_' + s, '#ffffff', 'ff', 1.5, hex, 'ff'); });
     const withRw = items.filter(x => x.rw);
     if (opt.runways){
