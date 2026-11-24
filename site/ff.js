@@ -5,6 +5,7 @@
  *   layers/<NAME> Route.kml     route and corridor outline, dashed and thinner than in the app (Wayne)
  *   layers/<NAME> Airstrips.kml runways, traffic patterns, visual approaches (each optional)
  *   navdata/<NAME> Waypoints.kml one user waypoint per airstrip, <code>_EMG (Mexican Airstrips uses <code>_AFAC)
+ *   navdata/<wp>AFAC record.pdf   (v0.8) each waypoint's AFAC record as a one-page PDF, as Mexican Airstrips attaches to <code>_AFAC
  * Geometry is Mexican Airstrips' (v0.94): runway from OpenStreetMap when it has one near AFAC's point, else a runway
  * drawn from AFAC's point, runway numbers, length and WMM-2025 variation ("estimate"); patterns ½ NM either side;
  * visual approaches modeled on Garmin's calculated visuals with the always-on terrain check (fails closed).
@@ -258,6 +259,79 @@
     });
     return k + '</Document></kml>\n';
   }
+  // v0.8: each waypoint's AFAC record as a one-page PDF in navdata/ (<wp>AFAC record.pdf), as Mexican Airstrips v0.66+ does for
+  // <code>_AFAC — ForeFlight lists PDFs attached to pack waypoints and opens them from the waypoint (Wayne, 23-Nov-2026).
+  // The PDF writer below is copied from Mexican Airstrips v0.94 (ASCII-only, Helvetica, WinAnsi) — keep the two in step.
+  const fmtD = iso => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ''); return m ? `${m[3]}-${MONTHS[+m[2] - 1]}-${m[1]}` : (iso || '-'); };
+  const card8 = b => ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round(((b % 360) + 360) % 360 / 45) % 8];
+  function recordRows(x, a){
+    const r = x.r.rec || {}, rw = x.rw, en = a.trEn || (v => v), dll = p => `${p[0].toFixed(6)}, ${p[1].toFixed(6)}`;
+    const both = v => !v ? '-' : en(v).toUpperCase() !== String(v).toUpperCase() ? `${en(v)} (${v})` : String(v);
+    const w = rw ? [(rw.a[0] + rw.b[0]) / 2, (rw.a[1] + rw.b[1]) / 2] : [x.r.lat, x.r.lon], ref = [x.r.lat, x.r.lon];
+    const wsrc = rw ? (rw.starter ? 'midpoint of the runway estimated from AFAC figures' : 'midpoint of the OpenStreetMap runway') : 'AFAC reference point';
+    const rwy = (r.rwy || []).filter(v => /^\d/.test(v));
+    const tpa = r.elev_m != null ? Math.round((ft(r.elev_m) + 1000) / 10) * 10 : null;
+    const route = x.r.along != null ? `${Math.round(x.r.along)} NM along ${a.W.map(p => p.code).join(' ')}, ${x.r.xt < 0.5 ? 'on course' : x.r.xt.toFixed(0) + ' NM ' + (x.r.side === 'L' ? 'left' : 'right') + ' of course'}` : '';
+    return [
+      ['Airstrip', (r.des ? r.des + ' - ' : '') + (r.name || x.r.name)],
+      ['Location', [r.muni, r.state].filter(Boolean).join(', ') + ', Mexico'],
+      ['Waypoint', `${x.wp}  ${dll(w)}  (${wsrc})`],
+      route ? ['On the route', route] : null,
+      ['AFAC ref. point', r.lat != null ? `${dll(ref)}${r.datum ? ' (' + r.datum + ')' : ''}${rw ? `, ${Math.round(dist(w, ref)).toLocaleString('en-US')} m ${card8(brg(w, ref))} of the waypoint` : ''}` : 'none listed'],
+      ['Elevation', r.elev_m != null ? `${ft(r.elev_m).toLocaleString('en-US')} ft (${r.elev_m} m)` : 'not in AFAC\'s list'],
+      ['TPA', tpa != null ? `${tpa.toLocaleString('en-US')} ft (assumed 1,000 ft above field; AFAC publishes none)` : '-'],
+      ['Runway', rwy.length ? `${rwy.map(pad2).join('/')}${r.len_m ? `, ${r.len_m.toLocaleString('en-US')} x ${r.wid_m ?? '?'} m (${ft(r.len_m).toLocaleString('en-US')} x ${r.wid_m ? ft(r.wid_m) : '?'} ft)` : ''}` : (r.len_m ? `${r.len_m.toLocaleString('en-US')} x ${r.wid_m ?? '?'} m (${ft(r.len_m).toLocaleString('en-US')} ft)` : '-')],
+      ['Surface', both(r.surf)],
+      ['Operation', both(r.ops)],
+      ['Service', both(r.svc)],
+      ['Permit', `${r.file || '-'}, ${both(r.status)}${r.expires ? ', expires ' + fmtD(r.expires) : ''}`],
+      ['Coordinating apt.', r.coord_apt || '-'],
+      ['', ''],
+      ['Source', `AFAC "Aerodromos y helipuertos" list (gob.mx, ${a.edition || 'current'} edition). With thanks to airports.robrc.net.`],
+      ['Built', `${today()} with GeezerGeek Pilot Planning Emergency Airstrips in Mexico, emergency-airstrips-mexico.netlify.app`],
+      ['', 'NOT FOR NAVIGATION.'],
+    ].filter(Boolean);
+  }
+  function recordPdf(wp, rows){
+    const W = 420, FS = 11, LEAD = 15, X1 = 20, X2 = 132;
+    const wpt = t => Array.from(t).reduce((a, ch) => a + (/[A-Z0-9]/.test(ch) ? 0.68 : /[a-z]/.test(ch) ? 0.52 : 0.32), 0) * FS;   // rough Helvetica widths
+    const wrap = t => { const out = []; let line = ''; for (const word of String(t).split(/\s+/)){ if (line && wpt(line + ' ' + word) > W - X2 - 14){ out.push(line); line = word; } else line = line ? line + ' ' + word : word; } out.push(line); return out; };
+    const pdfStr = t => '(' + Array.from(String(t).normalize('NFC')).map(ch => {
+      const c = ch.charCodeAt(0);
+      if (ch === '(' || ch === ')' || ch === '\\') return '\\' + ch;
+      if (c >= 32 && c < 127) return ch;
+      if (c >= 160 && c <= 255) return '\\' + c.toString(8);
+      return ch === '—' || ch === '–' ? '-' : '?';
+    }).join('') + ')';
+    const lines = [];
+    lines.push({ x: X1, t: `${wp} - AFAC record`, bold: true, size: 14 });
+    lines.push({ gap: 6 });
+    rows.forEach(([k, v]) => { wrap(v).forEach((l, i) => lines.push({ k: i ? '' : k, t: l })); });
+    const H = 40 + lines.reduce((a, l) => a + (l.gap || (l.size ? 20 : LEAD)), 0);
+    let y = H - 30, ops = [];
+    for (const l of lines){
+      if (l.gap){ y -= l.gap; continue; }
+      if (l.size){ ops.push(`BT /F2 ${l.size} Tf ${l.x} ${y} Td ${pdfStr(l.t)} Tj ET`); y -= 20; continue; }
+      if (l.k) ops.push(`BT /F2 ${FS} Tf ${X1} ${y} Td ${pdfStr(l.k)} Tj ET`);
+      ops.push(`BT /F1 ${FS} Tf ${X2} ${y} Td ${pdfStr(l.t)} Tj ET`);
+      y -= LEAD;
+    }
+    const content = ops.join('\n');
+    const objs = [
+      '<< /Type /Catalog /Pages 2 0 R >>',
+      '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${Math.ceil(H)}] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>`,
+      '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
+      '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',
+      `<< /Length ${content.length} >>\nstream\n${content}\nendstream`,
+    ];
+    let pdf = '%PDF-1.4\n', offs = [];
+    objs.forEach((o, i) => { offs.push(pdf.length); pdf += `${i + 1} 0 obj\n${o}\nendobj\n`; });
+    const xref = pdf.length;
+    pdf += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n` + offs.map(o => String(o).padStart(10, '0') + ' 00000 n \n').join('');
+    pdf += `trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+    return pdf;
+  }
   // <designator>_EMG (Mexican Airstrips uses _AFAC, so both packs can be installed together); no designator: letters of the name
   function wpName(r, used){
     let w = r.des ? norm(r.des).replace(/[^A-Z0-9]/g, '') : norm(r.name).replace(/[^A-Z0-9]+/g, '').slice(0, 8);
@@ -302,6 +376,7 @@
     if (opt.corridor && a.corridorRings && a.corridorRings.length) files[`${abbr}/layers/${abbr} Corridor.kml`] = corridorKml(`${abbr} Corridor`, a.corridorRings, a.corridor);
     if ((opt.runways || opt.patterns || opt.visuals) && items.some(x => x.rw)) files[`${abbr}/layers/${abbr} Airstrips.kml`] = airstripsKml(`${abbr} Airstrips`, items, opt);
     if (opt.waypoints && items.length) files[`${abbr}/navdata/${abbr} Waypoints.kml`] = waypointsKml(`${abbr} Waypoints`, items, a.edition);
+    if (opt.waypoints) items.forEach(x => { if (x.r.rec) files[`${abbr}/navdata/${x.wp}AFAC record.pdf`] = recordPdf(x.wp, recordRows(x, a)); });
     if (Object.keys(files).length < 2) throw new Error('Nothing to send: tick at least one item.');
     a.progress('Building the pack…');
     const d = await b64deflate(JSON.stringify(files));
