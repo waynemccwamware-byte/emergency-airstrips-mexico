@@ -8,4 +8,8 @@ Enter a route across Mexico and see the airstrips along it, filtered by runway l
 - `site/data/mx-icao.json` — Mexico's ICAO airports (copied from Mexican Airstrips).
 - `site/data/navaids.json`, `site/data/us-airports.json` — OurAirports navaids and US Southwest airports, built by `tools/build-data.py`.
 
+## Offline use
+
+This app runs on the web and needs a connection: its maps, AFAC data, runway lookups, terrain checks and pack building all come from the web. Nothing is kept for offline use. Plan on the ground, send the results to ForeFlight, finish the install (More → Custom Content → Install), and check them in airplane mode before you go. Only the airstrips you ticked go in the pack; each waypoint's PDF record is a snapshot from the day it was built.
+
 Not for navigation.

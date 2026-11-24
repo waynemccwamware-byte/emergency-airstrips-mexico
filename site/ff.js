@@ -189,10 +189,22 @@
   const lbl = `<Style id="lbl"><IconStyle><scale>0.6</scale></IconStyle><LabelStyle><scale>1.0</scale></LabelStyle></Style>`;
   // v0.3 (Wayne): route and corridor dashed and thinner than in the app, so they don't clutter ForeFlight's map
   // v0.4 (Wayne): bolder, fully opaque orange; route and corridor are separate files (separate Map Layers toggles)
-  function routeKml(name, W){
-    let k = head(name) + style('route', '#ff7a1a', 'ff', 3, null);
+  function routeKml(name, W, a = {}){
+    let k = head(name) + style('route', '#ff7a1a', 'ff', 3, null) + style('gap', '#e0302a', 'ff', 4, null) + `<Style id="gaplbl"><IconStyle><color>ff2a30e0</color><scale>0.6</scale></IconStyle><LabelStyle><color>ff2a30e0</color><scale>1.0</scale></LabelStyle></Style>\n`;
     const route = W.map(w => [w.lat, w.lon]);
     k += `<Placemark><name>Route ${esc(W.map(w => w.code).join(' '))}</name><description><![CDATA[Route from Planning Emergency Airstrips in Mexico. NOT FOR NAVIGATION.]]></description><styleUrl>#route</styleUrl><MultiGeometry>${dashPath(route, 3 * NM_M, 1 * NM_M).map(LS).join('')}</MultiGeometry></Placemark>\n`;
+    // v0.9: the longest stretch with nothing in the corridor always goes out with the route (Wayne), dashed red, labeled with its length
+    const g = a.gap;
+    if (g && g.pts && g.pts.length > 1){
+      const nm = Math.round(g.len), cn = a.corridor || 25;
+      const d = `Longest stretch with nothing in the ${cn} NM corridor with this pack's filters (${a.filters || 'no filters'}), from ${Math.round(g.a)} to ${Math.round(g.b)} NM along ${W.map(w => w.code).join(' ')}. Built ${today()}. NOT FOR NAVIGATION.`;
+      k += `<Placemark><name>${esc('No airstrip in corridor: ' + nm + ' NM')}</name><description><![CDATA[${d.replace(/]]>/g, '')}]]></description><styleUrl>#gap</styleUrl><MultiGeometry>${dashPath(g.pts, 2 * NM_M, 1 * NM_M).map(LS).join('')}</MultiGeometry></Placemark>\n`;
+      // label at the stretch's halfway point along the route
+      let tot = 0; for (let i = 1; i < g.pts.length; i++) tot += dist(g.pts[i - 1], g.pts[i]);
+      let m2 = g.pts[0], acc = 0;
+      for (let i = 1; i < g.pts.length; i++){ const L = dist(g.pts[i - 1], g.pts[i]); if (acc + L >= tot / 2){ const t = L ? (tot / 2 - acc) / L : 0; m2 = [g.pts[i - 1][0] + t * (g.pts[i][0] - g.pts[i - 1][0]), g.pts[i - 1][1] + t * (g.pts[i][1] - g.pts[i - 1][1])]; break; } acc += L; }
+      k += `<Placemark><name>${esc('No airstrip in corridor: ' + nm + ' NM')}</name><description><![CDATA[${d.replace(/]]>/g, '')}]]></description><styleUrl>#gaplbl</styleUrl><Point><coordinates>${m2[1].toFixed(6)},${m2[0].toFixed(6)},0</coordinates></Point></Placemark>\n`;
+    }
     return k + '</Document></kml>\n';
   }
   function corridorKml(name, corridorRings, corNM){
@@ -289,6 +301,7 @@
       ['', ''],
       ['Source', `AFAC "Aerodromos y helipuertos" list (gob.mx, ${a.edition || 'current'} edition). With thanks to airports.robrc.net.`],
       ['Built', `${today()} with GeezerGeek Pilot Planning Emergency Airstrips in Mexico, emergency-airstrips-mexico.netlify.app`],
+      ['Snapshot', `AFAC's ${a.edition || 'current'} edition as of the build date; not updated after installing. Rebuild before each trip.`],
       ['', 'NOT FOR NAVIGATION.'],
     ].filter(Boolean);
   }
@@ -372,7 +385,7 @@
     if (noRw) notes.push(`${noRw} airstrip${noRw > 1 ? 's have' : ' has'} no runway numbers or length in AFAC's list, so only the waypoint is sent.`);
     if (visFail) notes.push(`Terrain data didn't load for ${visFail} airstrip${visFail > 1 ? 's' : ''}, so no visual approaches for ${visFail > 1 ? 'them' : 'it'} (the terrain check can't be skipped).`);
     const files = { [`${abbr}/manifest.json`]: JSON.stringify({ name: title, abbreviation: abbr, version: 1, effectiveDate: stamp(), organizationName: 'GeezerGeek Pilot Planning Emergency Airstrips in Mexico' }, null, 1) };
-    if (opt.route) files[`${abbr}/layers/${abbr} Route.kml`] = routeKml(`${abbr} Route`, a.W);
+    if (opt.route) files[`${abbr}/layers/${abbr} Route.kml`] = routeKml(`${abbr} Route`, a.W, a);
     if (opt.corridor && a.corridorRings && a.corridorRings.length) files[`${abbr}/layers/${abbr} Corridor.kml`] = corridorKml(`${abbr} Corridor`, a.corridorRings, a.corridor);
     if ((opt.runways || opt.patterns || opt.visuals) && items.some(x => x.rw)) files[`${abbr}/layers/${abbr} Airstrips.kml`] = airstripsKml(`${abbr} Airstrips`, items, opt);
     if (opt.waypoints && items.length) files[`${abbr}/navdata/${abbr} Waypoints.kml`] = waypointsKml(`${abbr} Waypoints`, items, a.edition);

@@ -1,5 +1,10 @@
 <!DOCTYPE html>
-<!-- Planning Emergency Airstrips in Mexico v0.8 (23-Nov-2026): tapping an airstrip in the list opens its full AFAC record under the row
+<!-- Planning Emergency Airstrips in Mexico v0.9 (23-Nov-2026): offline notes (Wayne: pilots without a connection must not expect data
+     that isn't on the device). Footer: needs an internet connection, use on the ground, in flight rely only on the installed ForeFlight pack;
+     "Before you fly" box under the ready pack (finish the install, test in airplane mode, only ticked airstrips go, snapshot as of the build
+     date, download ForeFlight's own maps); each PDF record says it's a snapshot from that build and edition; the longest stretch with nothing in
+     the corridor always goes out with the Route layer as a dashed red line, labeled with its length (Wayne). v0.8.1 (23-Nov-2026): pack server
+     allows one PDF per airstrip (was 8 files). v0.8 (23-Nov-2026): tapping an airstrip in the list opens its full AFAC record under the row
      (type, classification, reference point and datum, elevation, runway, length × width, surface, operation, service, permit holder,
      permit status with issue/expiry dates, coordinating airport, edition and permit file), English/Español toggle remembered on the device;
      LABELS/ES_EN copied from Mexican Airstrips v0.94 (keep in step); tapping it again closes it; route-map labels open it too; map-dot
@@ -59,7 +64,7 @@
 <script src="vendor/polygon-clipping.umd.min.js"></script>
 <!-- NOAA WMM-2025 declination (geomagnetism 0.2.0, Apache-2.0), copied from Mexican Airstrips: runway numbers and estimated runways -->
 <script src="vendor/wmm.js"></script>
-<script src="ff.js?v=0.8"></script>
+<script src="ff.js?v=0.9"></script>
 <style>
   :root{
     --bg-deep:#10141a; --bg-panel:#1b222c; --bezel:#2a323f; --bezel-hi:#3a4454;
@@ -173,6 +178,10 @@
   .ff-acts{ display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
   .ff-acts a.btn{ text-decoration:none; }
   .ff-res[hidden]{ display:none; }
+  .ff-bfy{ margin-top:12px; padding:10px 12px; border:1px solid var(--amber-dim); border-left:3px solid var(--amber); border-radius:8px; background:rgba(245,166,35,.07); font-size:12.5px; line-height:1.45; }
+  .ff-bfy b:first-child{ color:var(--amber); }
+  .ff-bfy ul{ margin:6px 0 0 18px !important; color:var(--text-primary) !important; font-size:12.5px !important; }
+  .ff-bfy li{ margin:3px 0; }
   .ff-res ul{ margin:6px 0 0 18px; padding:0; font-size:12px; color:var(--text-muted); }
   .gaprow{ padding:8px 12px; border-bottom:1px solid var(--bezel); font-size:12px; color:var(--alert); background:rgba(224,112,95,.07); }
   .foot2{ font-size:11px; color:var(--text-muted); padding:8px 2px 0; line-height:1.5; }
@@ -273,7 +282,7 @@
 <div class="rig">
   <div class="title-row">
     <h1>Planning Emergency Airstrips in Mexico</h1>
-    <span class="ver mono">v0.8</span>
+    <span class="ver mono">v0.9</span>
   </div>
   <p class="purpose-line"><span class="purpose-label">Purpose:</span> Enter a route across Mexico and see the airstrips along it, filtered by runway length, surface and permit, so you know your options before you go.</p>
 
@@ -325,6 +334,14 @@
     <div class="status" id="ffStatus" role="status" aria-live="polite"></div>
     <div class="ff-res" id="ffRes" hidden>
       <div class="ff-acts"><a class="btn primary" id="ffOpen" href="#">Open in ForeFlight</a><a class="btn" id="ffDl" href="#">Download .zip</a></div>
+      <div class="ff-bfy" id="ffBfy"><b>Before you fly — this app won't work without a signal.</b> Only what's in the installed pack goes with you.
+        <ul>
+          <li><b>Finish the install:</b> ForeFlight only queues the pack. Go to More → Custom Content and tap Install.</li>
+          <li><b>Test it offline:</b> turn on airplane mode, open Maps, and check the layers and a <span class="mono">_EMG</span> waypoint's record.</li>
+          <li><b>Only what you ticked is in the pack.</b> Airstrips you unticked or filtered out stay in this app. The red "longest stretch with nothing in the corridor" goes in the pack's Route layer.</li>
+          <li><b>It's a snapshot as of <span id="ffBuilt"></span>.</b> Permits and AFAC's list change. Rebuild the pack before each trip.</li>
+          <li><b>Download ForeFlight's own maps</b> (and satellite imagery, if you use it) for the area. Otherwise these layers draw over a blank map.</li>
+        </ul></div>
       <p class="hint" style="margin-top:8px"><b>On iPhone or iPad</b>, "Open in ForeFlight" sends the pack to ForeFlight (it asks first). <b>ForeFlight then only queues the pack: to finish, go to More → Custom Content, tap the pack, and tap Install.</b> If tapping the button doesn't open ForeFlight, press and hold it and choose "Open in ForeFlight". <b>On a Mac, PC or Android device</b>, ForeFlight isn't there, so download the .zip and AirDrop or email it to the iPad, then open it in ForeFlight. In the Maps layer selector each file in the pack is its own toggle (Route, Corridor, Airstrips); the <code>_EMG</code> waypoints file without their layer on, so you can type them into a flight plan. Content packs need an individual ForeFlight subscription, or Performance level or higher for Business and MFB accounts. <b>Sending this route again?</b> ForeFlight doesn't replace a pack of the same name; it installs a second copy beside the old one. So first take its waypoints out of any active flight plan, delete the old pack in ForeFlight, close and reopen ForeFlight, then send it again.</p>
       <ul id="ffNotes"></ul>
     </div>
@@ -332,7 +349,7 @@
 </div>
 
 <div class="rig">
-  <p class="fine">Not for navigation. A planning aid only. Data: AFAC's "Aeródromos y helipuertos" list (gob.mx), Mexico's official airport list with positions from <a href="https://ourairports.com/data/" target="_blank" rel="noopener">OurAirports</a>, and OurAirports navaids and US airports (public domain). With thanks to <a href="https://airports.robrc.net/" target="_blank" rel="noopener">airports.robrc.net</a>, which showed the way to AFAC's data. Check every airstrip against current official sources, recent pilot reports and your own eyes.</p>
+  <p class="fine"><b>Needs an internet connection: a planning tool for use on the ground. In flight, rely only on what you've installed in ForeFlight.</b> Not for navigation. A planning aid only. Data: AFAC's "Aeródromos y helipuertos" list (gob.mx), Mexico's official airport list with positions from <a href="https://ourairports.com/data/" target="_blank" rel="noopener">OurAirports</a>, and OurAirports navaids and US airports (public domain). With thanks to <a href="https://airports.robrc.net/" target="_blank" rel="noopener">airports.robrc.net</a>, which showed the way to AFAC's data. Check every airstrip against current official sources, recent pilot reports and your own eyes.</p>
   <!-- GGP-FOOTER START v1.14 · 13-Nov-2026 · shared footer, App Conventions §5a · master: Control Panel repo tools/ggp-footer -->
 <footer class="ggp-footer">
   <div class="ggp-back"><a href="https://geezer-geek-pilot-control-panel.netlify.app/">&larr; Back to GeezerGeek Pilot Apps</a></div>
@@ -364,7 +381,7 @@
     return /^VIGENTE/.test(t) ? 'current' : /INOPERATIVO/.test(t) ? 'not operating' : /CERRADO/.test(t) ? 'closed by NOTAM' : /TRAMITE/.test(t) ? 'in process' : 'not current'; };
 
   let STR = [], ICAO = [], NAV = [], US = [];
-  let W = [], corridor = 25, rows = [], selLine = null;
+  let W = [], corridor = 25, rows = [], selLine = null, GAP = null;   // v0.9: GAP = the longest empty stretch, for the pack's Route layer
 
   // ---------- geometry (NM) ----------
   const R = 3440.065, k = Math.PI / 180;
@@ -615,7 +632,7 @@
     });
     rows.sort((a, b) => a.along - b.along);
     if (W.length < 2){
-      $('ffBtn').disabled = true;
+      GAP = null; $('ffBtn').disabled = true;
       $('list').innerHTML = `<div class="cnt">${all.length.toLocaleString('en-US')} airstrips and airports with these filters</div><div class="row note">Enter a route above to list the ones along it. Tap a dot for its details and full AFAC record.</div>`;
       declutter(); return;
     }
@@ -626,6 +643,7 @@
     let gap = { len:0, a:0, b:0 };
     for (let i = 1; i < marks.length; i++) if (marks[i] - marks[i - 1] > gap.len) gap = { len:marks[i] - marks[i - 1], a:marks[i - 1], b:marks[i] };
     drawCorridor();
+    GAP = gap.len > 1 ? { len:gap.len, a:gap.a, b:gap.b, pts:slice(gap.a, gap.b) } : null;
     L.polyline(W.map(w => [w.lat, w.lon]), { color:'#10141a', weight:6, opacity:.5, interactive:false }).addTo(routeLayer);
     L.polyline(W.map(w => [w.lat, w.lon]), { color:'#f5a623', weight:3, interactive:false }).addTo(routeLayer);
     if (gap.len > 1) L.polyline(slice(gap.a, gap.b), { color:'#e0705f', weight:5, opacity:.9, interactive:false }).addTo(routeLayer);
@@ -687,17 +705,28 @@
   $('ffVisNo').addEventListener('click', () => { $('ffCaution').hidden = true; });
   Object.values(ffIds).filter(id => id !== 'ffVis').forEach(id => $(id).addEventListener('change', () => { ffSave(); $('ffRes').hidden = true; }));
   const IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  // v0.9: the filters in words, for the gap line's description in the pack
+  function filterText(){
+    const f = [];
+    if (+$('minLen').value) f.push('runway ' + $('minLen').selectedOptions[0].textContent + '+');
+    if ($('paved').checked) f.push('paved only');
+    if ($('cur').checked) f.push('current permit');
+    if ($('terc').checked) f.push('open to third parties');
+    if (!$('icao').checked) f.push('no ICAO airports');
+    return f.length ? f.join(', ') : 'no filters';
+  }
   $('ffBuild').addEventListener('click', async () => {
     const opt = {}; Object.entries(ffIds).forEach(([k, id]) => { opt[k] = $(id).checked; });
     const list = ticked().map(x => ({ des:x.des, name:x.name, muni:x.muni, state:x.state, elev:x.elev, lat:x.lat, lon:x.lon, rwyArr:x.rwyArr, len:x.len, wid:x.wid, surf:x.surf, status:x.status, terc:x.terc, rec:x.rec, along:x.along, xt:x.xt, side:x.side }));
     if (!list.length && !opt.route && !opt.corridor){ $('ffStatus').className = 'status warn'; $('ffStatus').textContent = 'Nothing to send: tick some airstrips in the list, the route or the corridor.'; return; }
     $('ffBuild').disabled = true; $('ffRes').hidden = true; $('ffStatus').className = 'status';
     try {
-      const out = await FF.build({ W, corridorRings, corridor, airstrips:list, opt, edition:$('afacEd').textContent, trEn:v => { const l = lang; lang = 'en'; const t = tr(v); lang = l; return t; }, progress:t => { $('ffStatus').textContent = t; } });
+      const out = await FF.build({ W, corridorRings, corridor, airstrips:list, opt, edition:$('afacEd').textContent, gap:GAP, filters:filterText(), trEn:v => { const l = lang; lang = 'en'; const t = tr(v); lang = l; return t; }, progress:t => { $('ffStatus').textContent = t; } });
       $('ffOpen').href = 'https://foreflight.com/content?downloadURL=' + encodeURIComponent(out.url);
       $('ffDl').href = out.url;
       $('ffStatus').className = 'status'; $('ffStatus').innerHTML = `Pack <b>${esc(out.title)}</b> is ready (${list.length} airstrip${list.length === 1 ? '' : 's'}).` + (IOS ? '' : ' Open in ForeFlight works on iPhone and iPad; here, download the .zip.');
       $('ffNotes').innerHTML = out.notes.map(n => `<li>${esc(n)}</li>`).join('') + (opt.waypoints && out.wps.length ? `<li>Waypoints: ${esc(out.wps.join(', '))}</li>` : '');
+      $('ffBuilt').textContent = out.built;
       $('ffRes').hidden = false;
     } catch (e){ $('ffStatus').className = 'status warn'; $('ffStatus').textContent = e.message || String(e); }
     $('ffBuild').disabled = false;
