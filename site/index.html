@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<!-- Planning Emergency Airstrips in Mexico v0.18 (25-Nov-2026): map zooms 3 levels past the satellite imagery's own depth (tiles enlarged; Esri's depth probed under the map center when zoomed in close), Map and Topo enlarge too (Wayne, same as Mexican Airstrips v1.05).
+<!-- Planning Emergency Airstrips in Mexico v0.19 (25-Nov-2026): English | Español (shared language core, footer v1.15): switch at the top right; screens, notes, the caution and the ForeFlight pack (layer text, PDF records, dates) in Mexican Spanish; pack file names and _EMG waypoint names unchanged; the AFAC record opens in the page's language (Wayne).
+     v0.18 (25-Nov-2026): map zooms 3 levels past the satellite imagery's own depth (tiles enlarged; Esri's depth probed under the map center when zoomed in close), Map and Topo enlarge too (Wayne, same as Mexican Airstrips v1.05).
      v0.17 (24-Nov-2026): colored dot PNGs back with IconStyle <color> kept, so tags and dots both match (ForeFlight doesn't tint PNGs; Mexican Airstrips v1.04).
      v0.16 (24-Nov-2026): colored pack dots tinted by IconStyle color on the white PNG, to color their ForeFlight label tags (test, same as Mexican Airstrips v1.03).
      v0.15 (24-Nov-2026): visual approach dashes get a dark casing in the pack, same as Mexican Airstrips v1.02; route and corridor stay without one (Wayne: fine subdued).
@@ -73,7 +74,7 @@
 <script src="vendor/polygon-clipping.umd.min.js"></script>
 <!-- NOAA WMM-2025 declination (geomagnetism 0.2.0, Apache-2.0), copied from Mexican Airstrips: runway numbers and estimated runways -->
 <script src="vendor/wmm.js"></script>
-<script src="ff.js?v=0.9"></script>
+<script src="ff.js?v=0.19"></script>
 <style>
   :root{
     --bg-deep:#10141a; --bg-panel:#1b222c; --bezel:#2a323f; --bezel-hi:#3a4454;
@@ -94,6 +95,11 @@
   .title-row{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:2px; padding:0 4px; }
   .title-row h1{ font-size:19px; font-weight:600; margin:0; letter-spacing:0.01em; }
   .title-row .ver{ font-size:11px; color:var(--text-muted); }
+  /* v0.19 (25-Nov-2026): English | Español switch at the right of the title row (shared .ggp-lang-switch), version under it */
+  .title-row{ align-items:center; gap:12px; }
+  .hdr-right{ display:flex; flex-direction:column; align-items:flex-end; gap:3px; flex-shrink:0; }
+  .es-beta{ display:none; margin:0 4px 12px; font-size:12px; color:var(--text-muted); font-style:italic; }
+  :root[lang^="es"] .es-beta{ display:block; }
   .purpose-line{ font-size:12.5px; color:var(--teal); margin:4px 4px 10px; line-height:1.5; }
   .purpose-label{ color:var(--text-primary); }
   .web-note{ margin:0 4px 12px; padding:8px 12px; border-radius:8px; background:var(--amber); color:#1a1200; font-size:12.5px; line-height:1.45; }   /* v0.10: inverted amber offline notice (Wayne) */
@@ -279,6 +285,12 @@
       else { var x = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(d || '')); if (!x) return String(d || ''); y = +x[1]; m = +x[2] - 1; dd = +x[3]; }
       return (dd < 10 ? '0' : '') + dd + '-' + MON[lang][m] + '-' + y;
     },
+    // any 25-Nov-2026 in a string, in the current language (25-nov-2026)
+    dmy: function (str) {
+      if (!es) return String(str == null ? '' : str);
+      return String(str == null ? '' : str).replace(/\b(\d{1,2})-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{4})\b/g,
+        function (m, d, mo, y) { return d + '-' + MON.es[MON.en.indexOf(mo)] + '-' + y; });
+    },
     withLang: withLang,
     // Elements marked data-es="…" (innerHTML) or data-es-title, data-es-placeholder, … get their Spanish once.
     apply: function (root) {
@@ -395,20 +407,24 @@
 <body>
 <div class="rig">
   <div class="title-row">
-    <h1>Planning Emergency Airstrips in Mexico</h1>
-    <span class="ver mono">v0.18</span>
+    <h1 data-es="Planeación de pistas de emergencia en México">Planning Emergency Airstrips in Mexico</h1>
+    <div class="hdr-right">
+      <div class="ggp-lang-switch" role="group" aria-label="Language / Idioma"><button type="button" data-ggp-lang="en" lang="en">English</button><button type="button" data-ggp-lang="es" lang="es">Español</button></div>
+      <span class="ver mono">v0.19</span>
+    </div>
   </div>
-  <p class="purpose-line"><span class="purpose-label">Purpose:</span> Enter a route across Mexico and see the airstrips along it, filtered by runway length, surface and permit, so you know your options before you go.</p>
-  <p class="web-note"><b>Web app: plan on the ground.</b> It needs an internet connection and keeps nothing for offline use. In flight, you have only what you've installed in ForeFlight.</p>
+  <p class="purpose-line" data-es="<span class=&quot;purpose-label&quot;>Propósito:</span> escribe una ruta sobre México y ve las pistas a lo largo de ella, filtradas por longitud de pista, superficie y permiso, para conocer tus opciones antes de salir."><span class="purpose-label">Purpose:</span> Enter a route across Mexico and see the airstrips along it, filtered by runway length, surface and permit, so you know your options before you go.</p>
+  <p class="web-note" data-es="<b>App web: planea en tierra.</b> Necesita conexión a internet y no guarda nada para usarse sin conexión. En vuelo solo tienes lo que hayas instalado en ForeFlight."><b>Web app: plan on the ground.</b> It needs an internet connection and keeps nothing for offline use. In flight, you have only what you've installed in ForeFlight.</p>
 
+  <p class="es-beta">Traducción al español en revisión por pilotos. Si algo no queda claro, cambia a English arriba.</p>
   <section class="step">
     <div class="step-num">1</div>
     <div class="step-body">
-      <h2>Route</h2>
-      <p class="hint">Waypoints separated by spaces: ICAO airports (MMLT, KSDM), VOR/NDB idents (SQN), AFAC airstrips with an X in front (XSQA; a bare 3-letter ident is taken as a navaid first, as in ForeFlight), coordinates (2830N11030W or 28.5/-110.5), or fix/radial/distance (PPE/110/30: 30 NM out on PPE's 110 radial, magnetic, with today's variation at the fix, as ForeFlight places it). Where an ident fits more than one place, the one nearest the previous waypoint is used.</p>
-      <div class="q-row"><input class="fld" id="route" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="KSDM MMPE XSQA" aria-label="Route"><button class="btn primary" id="go" type="button">Show route</button><button class="btn" id="clr" type="button">Clear</button></div>
+      <h2 data-es="Ruta">Route</h2>
+      <p class="hint" data-es="Waypoints separados por espacios: aeropuertos OACI (MMLT, KSDM), identificadores VOR/NDB (SQN), pistas de la AFAC con una X al inicio (XSQA; un identificador de 3 letras sin X se toma primero como radioayuda, como en ForeFlight), coordenadas (2830N11030W o 28.5/-110.5), o punto/radial/distancia (PPE/110/30: 30 NM sobre el radial 110 de PPE, magnético, con la variación actual en el punto, como lo coloca ForeFlight). Si un identificador corresponde a más de un lugar, se usa el más cercano al waypoint anterior.">Waypoints separated by spaces: ICAO airports (MMLT, KSDM), VOR/NDB idents (SQN), AFAC airstrips with an X in front (XSQA; a bare 3-letter ident is taken as a navaid first, as in ForeFlight), coordinates (2830N11030W or 28.5/-110.5), or fix/radial/distance (PPE/110/30: 30 NM out on PPE's 110 radial, magnetic, with today's variation at the fix, as ForeFlight places it). Where an ident fits more than one place, the one nearest the previous waypoint is used.</p>
+      <div class="q-row"><input class="fld" id="route" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="KSDM MMPE XSQA" aria-label="Route" data-es-aria-label="Ruta"><button class="btn primary" id="go" type="button" data-es="Mostrar ruta">Show route</button><button class="btn" id="clr" type="button" data-es="Borrar">Clear</button></div>
       <div class="chips" id="chips"></div>
-      <div class="status" id="rStatus" role="status" aria-live="polite">Loading AFAC's aerodrome list…</div>
+      <div class="status" id="rStatus" role="status" aria-live="polite" data-es="Cargando la lista de aeródromos de la AFAC…">Loading AFAC's aerodrome list…</div>
     </div>
   </section>
 </div>
@@ -416,40 +432,47 @@
 <section class="step" id="sec2">
   <div class="step-num">2</div>
   <div class="step-body">
-    <h2>Airstrips along the route</h2>
+    <h2 data-es="Pistas a lo largo de la ruta">Airstrips along the route</h2>
     <div class="ctrls">
-      <span>Within <span class="seg" id="cor" role="group" aria-label="Corridor"><button type="button" data-c="10">10</button><button type="button" data-c="25" class="on">25</button><button type="button" data-c="50">50 NM</button></span> of the route</span>
-      <label>Runway at least <select id="minLen"><option value="0">any</option><option value="610">2,000 ft</option><option value="914">3,000 ft</option><option value="1219">4,000 ft</option></select></label>
-      <label><input type="checkbox" id="paved"> Paved only</label>
-      <label><input type="checkbox" id="cur"> Current permit only</label>
-      <label><input type="checkbox" id="terc"> Open to third parties</label>
-      <label><input type="checkbox" id="icao" checked> ICAO airports</label>
-      <button class="btn small" id="listBtn" type="button" aria-controls="list">Hide list</button>
-      <button class="btn small ff" id="ffBtn" type="button" disabled>Open in ForeFlight</button>
+      <span><span class="es-h" data-es="A no más de">Within</span> <span class="seg" id="cor" role="group" aria-label="Corridor" data-es-aria-label="Corredor"><button type="button" data-c="10">10</button><button type="button" data-c="25" class="on">25</button><button type="button" data-c="50">50 NM</button></span> <span data-es="de la ruta">of the route</span></span>
+      <label><span data-es="Pista de al menos">Runway at least</span> <select id="minLen"><option value="0" data-es="cualquiera">any</option><option value="610">2,000 ft</option><option value="914">3,000 ft</option><option value="1219">4,000 ft</option></select></label>
+      <label><input type="checkbox" id="paved"> <span data-es="Solo pavimentadas">Paved only</span></label>
+      <label><input type="checkbox" id="cur"> <span data-es="Solo con permiso vigente">Current permit only</span></label>
+      <label><input type="checkbox" id="terc"> <span data-es="Abiertas a terceros">Open to third parties</span></label>
+      <label><input type="checkbox" id="icao" checked> <span data-es="Aeropuertos OACI">ICAO airports</span></label>
+      <button class="btn small" id="listBtn" type="button" aria-controls="list" data-es="Ocultar lista">Hide list</button>
+      <button class="btn small ff" id="ffBtn" type="button" disabled data-es="Abrir en ForeFlight">Open in ForeFlight</button>
     </div>
     <div class="body2"><div id="map"></div><div class="list" id="list"></div></div>
-    <div class="foot2"><span class="legend"><span><span class="dot" style="background:var(--amber)"></span>route waypoint</span><span><span class="dot" style="background:#b9c2cf"></span>paved</span><span><span class="dot" style="background:#c08a52"></span>dirt / unpaved</span><span><span class="dot" style="background:#3fa7a0"></span>water</span><span><span class="dot" style="background:#6b7380"></span>surface not listed</span><span><span class="dot" style="background:#7fd6ee;border-radius:2px"></span>ICAO airport</span><span>hollow = permit not current (ICAO: not on Mexico's official airport list)</span><span><span style="display:inline-block;width:16px;border-top:2px dashed #f5a623;vertical-align:3px;margin-right:4px"></span>corridor edge</span><span><span style="display:inline-block;width:16px;border-top:3px solid #e0705f;vertical-align:3px;margin-right:4px"></span>longest stretch with nothing in the corridor</span></span><br>
-    Distance along the route and off course (left or right of the course line) in NM. "Open to third parties" is AFAC's service type "particular y a terceros" (private-use permits are "particular" only); ICAO airports pass it, and "Current permit only", when they're on Mexico's official airport list. ICAO runway length and surface come from OurAirports. Airstrips, elevations and lengths as AFAC's list gives them (<span id="afacEd">current</span> edition); AFAC's figures are sometimes wrong, and an airstrip on this list is not a known-safe landing spot. To draw one for ForeFlight, Garmin Pilot or X-Plane, look it up in <a href="https://airfield-kml-builder.netlify.app/" target="_blank" rel="noopener">Mexican Airstrips for your EFB and Sim</a>.</div>
+    <div class="foot2"><span class="legend"><span><span class="dot" style="background:var(--amber)"></span><t data-es="waypoint de la ruta">route waypoint</t></span><span><span class="dot" style="background:#b9c2cf"></span><t data-es="pavimentada">paved</t></span><span><span class="dot" style="background:#c08a52"></span><t data-es="terracería / sin pavimentar">dirt / unpaved</t></span><span><span class="dot" style="background:#3fa7a0"></span><t data-es="agua">water</t></span><span><span class="dot" style="background:#6b7380"></span><t data-es="superficie no indicada">surface not listed</t></span><span><span class="dot" style="background:#7fd6ee;border-radius:2px"></span><t data-es="aeropuerto OACI">ICAO airport</t></span><span data-es="hueco = permiso no vigente (OACI: no está en la lista oficial de aeropuertos de México)">hollow = permit not current (ICAO: not on Mexico's official airport list)</span><span><span style="display:inline-block;width:16px;border-top:2px dashed #f5a623;vertical-align:3px;margin-right:4px"></span><t data-es="borde del corredor">corridor edge</t></span><span><span style="display:inline-block;width:16px;border-top:3px solid #e0705f;vertical-align:3px;margin-right:4px"></span><t data-es="tramo más largo sin nada en el corredor">longest stretch with nothing in the corridor</t></span></span><br>
+    <span class="foot2-txt" data-es="Distancia a lo largo de la ruta y fuera de curso (a la izquierda o derecha de la línea de curso) en NM. &quot;Abiertas a terceros&quot; es el tipo de servicio de la AFAC &quot;particular y a terceros&quot; (los permisos de uso privado son solo &quot;particular&quot;); los aeropuertos OACI pasan ese filtro, y el de &quot;Solo con permiso vigente&quot;, cuando están en la lista oficial de aeropuertos de México. La longitud y superficie de pista de los aeropuertos OACI vienen de OurAirports. Pistas, elevaciones y longitudes según la lista de la AFAC (edición &lt;span id=&quot;afacEd&quot;&gt;vigente&lt;/span&gt;); las cifras de la AFAC a veces están mal, y que una pista aparezca en esta lista no significa que sea un lugar seguro para aterrizar. Para dibujar una en ForeFlight, Garmin Pilot o X-Plane, búscala en &lt;a href=&quot;https://airfield-kml-builder.netlify.app/&quot; target=&quot;_blank&quot; rel=&quot;noopener&quot;&gt;Pistas mexicanas para tu EFB y simulador&lt;/a&gt;.">Distance along the route and off course (left or right of the course line) in NM. "Open to third parties" is AFAC's service type "particular y a terceros" (private-use permits are "particular" only); ICAO airports pass it, and "Current permit only", when they're on Mexico's official airport list. ICAO runway length and surface come from OurAirports. Airstrips, elevations and lengths as AFAC's list gives them (<span id="afacEd">current</span> edition); AFAC's figures are sometimes wrong, and an airstrip on this list is not a known-safe landing spot. To draw one for ForeFlight, Garmin Pilot or X-Plane, look it up in <a href="https://airfield-kml-builder.netlify.app/" target="_blank" rel="noopener">Mexican Airstrips for your EFB and Sim</a>.</span></div>
   </div>
 </section>
 
 <div class="ff-ovl" id="ffOvl" hidden role="dialog" aria-modal="true" aria-labelledby="ffH">
   <div class="ff-dlg">
-    <h2 id="ffH">Send to ForeFlight</h2>
+    <h2 id="ffH" data-es="Enviar a ForeFlight">Send to ForeFlight</h2>
     <p class="hint" id="ffSum"></p>
-    <label class="opt"><input type="checkbox" id="ffRoute" checked><span>Route<small>Orange dashed line, long dashes</small></span></label>
-    <label class="opt"><input type="checkbox" id="ffCor" checked><span>Corridor<small>Orange dashed outline, short dashes</small></span></label>
-    <label class="opt"><input type="checkbox" id="ffWp" checked><span>Airstrip waypoints<small>One per airstrip, named like <span class="mono">SQA_EMG</span>, usable in a ForeFlight route, each with its AFAC record attached as a PDF (Mexican Airstrips uses _AFAC, so the two don't clash)</small></span></label>
-    <label class="opt"><input type="checkbox" id="ffRw" checked><span>Runways<small>From OpenStreetMap where it has one; otherwise estimated from AFAC's point, runway numbers and length, and may sit off the real airstrip</small></span></label>
-    <label class="opt"><input type="checkbox" id="ffPat" checked><span>Traffic patterns<small>½ NM either side, both directions, TPA 1,000 ft above AFAC's elevation (AFAC publishes no pattern direction)</small></span></label>
-    <label class="opt"><input type="checkbox" id="ffVis"><span>Visual approaches (advisory)<small>3° paths to each runway end, 5 NM, with the terrain check from Mexican Airstrips</small></span></label>
-    <div class="ff-caution" id="ffCaution" hidden><b>Visual approaches: advisory only.</b> <span id="ffCautionTxt"></span>
-      <div class="ff-acts"><button class="btn primary" id="ffVisOk" type="button">I understand</button><button class="btn" id="ffVisNo" type="button">Cancel</button></div></div>
-    <div class="ff-acts"><button class="btn primary" id="ffBuild" type="button">Build the pack</button><button class="btn" id="ffClose" type="button">Close</button></div>
+    <label class="opt"><input type="checkbox" id="ffRoute" checked><span data-es="Ruta&lt;small&gt;Línea naranja punteada, trazos largos&lt;/small&gt;">Route<small>Orange dashed line, long dashes</small></span></label>
+    <label class="opt"><input type="checkbox" id="ffCor" checked><span data-es="Corredor&lt;small&gt;Contorno naranja punteado, trazos cortos&lt;/small&gt;">Corridor<small>Orange dashed outline, short dashes</small></span></label>
+    <label class="opt"><input type="checkbox" id="ffWp" checked><span data-es="Waypoints de las pistas<small>Uno por pista, con nombre como <span class=&quot;mono&quot;>SQA_EMG</span>, utilizable en una ruta de ForeFlight, cada uno con su registro de la AFAC adjunto en PDF (Pistas mexicanas usa _AFAC, así que no chocan)</small>">Airstrip waypoints<small>One per airstrip, named like <span class="mono">SQA_EMG</span>, usable in a ForeFlight route, each with its AFAC record attached as a PDF (Mexican Airstrips uses _AFAC, so the two don't clash)</small></span></label>
+    <label class="opt"><input type="checkbox" id="ffRw" checked><span data-es="Pistas (runways)<small>De OpenStreetMap cuando tiene la pista; si no, estimada a partir del punto, números de pista y longitud de la AFAC, y puede quedar fuera de la pista real</small>">Runways<small>From OpenStreetMap where it has one; otherwise estimated from AFAC's point, runway numbers and length, and may sit off the real airstrip</small></span></label>
+    <label class="opt"><input type="checkbox" id="ffPat" checked><span data-es="Circuitos de tránsito<small>½ NM a cada lado, ambos sentidos, altitud de circuito (TPA) 1,000 ft sobre la elevación de la AFAC (la AFAC no publica el sentido del circuito)</small>">Traffic patterns<small>½ NM either side, both directions, TPA 1,000 ft above AFAC's elevation (AFAC publishes no pattern direction)</small></span></label>
+    <label class="opt"><input type="checkbox" id="ffVis"><span data-es="Aproximaciones visuales (orientativas)<small>Trayectorias de 3° a cada extremo de pista, 5 NM, con la revisión de terreno de Pistas mexicanas</small>">Visual approaches (advisory)<small>3° paths to each runway end, 5 NM, with the terrain check from Mexican Airstrips</small></span></label>
+    <div class="ff-caution" id="ffCaution" hidden><b data-es="Aproximaciones visuales: solo orientativas.">Visual approaches: advisory only.</b> <span id="ffCautionTxt"></span>
+      <div class="ff-acts"><button class="btn primary" id="ffVisOk" type="button" data-es="Entiendo">I understand</button><button class="btn" id="ffVisNo" type="button" data-es="Cancelar">Cancel</button></div></div>
+    <div class="ff-acts"><button class="btn primary" id="ffBuild" type="button" data-es="Crear el paquete">Build the pack</button><button class="btn" id="ffClose" type="button" data-es="Cerrar">Close</button></div>
     <div class="status" id="ffStatus" role="status" aria-live="polite"></div>
     <div class="ff-res" id="ffRes" hidden>
-      <div class="ff-acts"><a class="btn primary" id="ffOpen" href="#">Open in ForeFlight</a><a class="btn" id="ffDl" href="#">Download .zip</a></div>
-      <div class="ff-bfy" id="ffBfy"><b>Before you fly — this app won't work without a signal.</b> Only what's in the installed pack goes with you.
+      <div class="ff-acts"><a class="btn primary" id="ffOpen" href="#" data-es="Abrir en ForeFlight">Open in ForeFlight</a><a class="btn" id="ffDl" href="#" data-es="Descargar .zip">Download .zip</a></div>
+      <div class="ff-bfy" id="ffBfy" data-es="<b>Antes de volar: esta app no funciona sin señal.</b> Solo lo que esté en el paquete instalado va contigo.
+        <ul>
+          <li><b>Termina la instalación:</b> ForeFlight solo pone el paquete en cola. Ve a More → Custom Content y toca Install.</li>
+          <li><b>Pruébalo sin conexión:</b> activa el modo avión, abre Maps y revisa las capas y el registro de un waypoint <span class=&quot;mono&quot;>_EMG</span>.</li>
+          <li><b>Solo va en el paquete lo que marcaste.</b> Las pistas que desmarcaste o filtraste se quedan en esta app. El tramo rojo &quot;más largo sin nada en el corredor&quot; va en la capa Route del paquete.</li>
+          <li><b>Es una foto al <span id=&quot;ffBuilt&quot;></span>.</b> Los permisos y la lista de la AFAC cambian. Vuelve a crear el paquete antes de cada viaje.</li>
+          <li><b>Descarga los mapas de ForeFlight</b> (y las imágenes de satélite, si las usas) de la zona. Si no, estas capas se dibujan sobre un mapa vacío.</li>
+        </ul>"><b>Before you fly — this app won't work without a signal.</b> Only what's in the installed pack goes with you.
         <ul>
           <li><b>Finish the install:</b> ForeFlight only queues the pack. Go to More → Custom Content and tap Install.</li>
           <li><b>Test it offline:</b> turn on airplane mode, open Maps, and check the layers and a <span class="mono">_EMG</span> waypoint's record.</li>
@@ -457,14 +480,14 @@
           <li><b>It's a snapshot as of <span id="ffBuilt"></span>.</b> Permits and AFAC's list change. Rebuild the pack before each trip.</li>
           <li><b>Download ForeFlight's own maps</b> (and satellite imagery, if you use it) for the area. Otherwise these layers draw over a blank map.</li>
         </ul></div>
-      <p class="hint" style="margin-top:8px"><b>On iPhone or iPad</b>, "Open in ForeFlight" sends the pack to ForeFlight (it asks first). <b>ForeFlight then only queues the pack: to finish, go to More → Custom Content, tap the pack, and tap Install.</b> If tapping the button doesn't open ForeFlight, press and hold it and choose "Open in ForeFlight". <b>On a Mac, PC or Android device</b>, ForeFlight isn't there, so download the .zip and AirDrop or email it to the iPad, then open it in ForeFlight. In the Maps layer selector each file in the pack is its own toggle (Route, Corridor, Airstrips); the <code>_EMG</code> waypoints file without their layer on, so you can type them into a flight plan. Content packs need an individual ForeFlight subscription, or Performance level or higher for Business and MFB accounts. <b>Sending this route again?</b> ForeFlight doesn't replace a pack of the same name; it installs a second copy beside the old one. So first take its waypoints out of any active flight plan, delete the old pack in ForeFlight, close and reopen ForeFlight, then send it again.</p>
+      <p class="hint" style="margin-top:8px" data-es="<b>En iPhone o iPad</b>, &quot;Abrir en ForeFlight&quot; manda el paquete a ForeFlight (primero te pregunta). <b>ForeFlight solo lo pone en cola: para terminar, ve a More → Custom Content, toca el paquete y toca Install.</b> Si al tocar el botón no se abre ForeFlight, mantenlo presionado y elige &quot;Open in ForeFlight&quot;. <b>En una Mac, PC o Android</b> no hay ForeFlight, así que descarga el .zip y mándalo al iPad por AirDrop o correo, y ábrelo en ForeFlight. En el selector de capas de Maps cada archivo del paquete es su propio interruptor (Route, Corridor, Airstrips); los waypoints <code>_EMG</code> funcionan sin su capa encendida, así que puedes escribirlos en un plan de vuelo. Los paquetes de contenido requieren una suscripción individual de ForeFlight, o nivel Performance o superior en cuentas Business y MFB. <b>¿Vas a mandar esta ruta otra vez?</b> ForeFlight no reemplaza un paquete con el mismo nombre; instala una segunda copia junto a la anterior. Así que primero quita sus waypoints de cualquier plan de vuelo activo, borra el paquete anterior en ForeFlight, cierra y vuelve a abrir ForeFlight, y luego mándalo de nuevo."><b>On iPhone or iPad</b>, "Open in ForeFlight" sends the pack to ForeFlight (it asks first). <b>ForeFlight then only queues the pack: to finish, go to More → Custom Content, tap the pack, and tap Install.</b> If tapping the button doesn't open ForeFlight, press and hold it and choose "Open in ForeFlight". <b>On a Mac, PC or Android device</b>, ForeFlight isn't there, so download the .zip and AirDrop or email it to the iPad, then open it in ForeFlight. In the Maps layer selector each file in the pack is its own toggle (Route, Corridor, Airstrips); the <code>_EMG</code> waypoints file without their layer on, so you can type them into a flight plan. Content packs need an individual ForeFlight subscription, or Performance level or higher for Business and MFB accounts. <b>Sending this route again?</b> ForeFlight doesn't replace a pack of the same name; it installs a second copy beside the old one. So first take its waypoints out of any active flight plan, delete the old pack in ForeFlight, close and reopen ForeFlight, then send it again.</p>
       <ul id="ffNotes"></ul>
     </div>
   </div>
 </div>
 
 <div class="rig">
-  <p class="fine"><b>Needs an internet connection: a planning tool for use on the ground. In flight, rely only on what you've installed in ForeFlight.</b> Not for navigation. A planning aid only. Data: AFAC's "Aeródromos y helipuertos" list (gob.mx), Mexico's official airport list with positions from <a href="https://ourairports.com/data/" target="_blank" rel="noopener">OurAirports</a>, and OurAirports navaids and US airports (public domain). With thanks to <a href="https://airports.robrc.net/" target="_blank" rel="noopener">airports.robrc.net</a>, which showed the way to AFAC's data. Check every airstrip against current official sources, recent pilot reports and your own eyes.</p>
+  <p class="fine" data-es="<b>Necesita conexión a internet: es una herramienta de planeación para usarse en tierra. En vuelo, confía solo en lo que hayas instalado en ForeFlight.</b> No apta para navegación. Solo una ayuda de planeación. Datos: la lista &quot;Aeródromos y helipuertos&quot; de la AFAC (gob.mx), la lista oficial de aeropuertos de México con posiciones de <a href=&quot;https://ourairports.com/data/&quot; target=&quot;_blank&quot; rel=&quot;noopener&quot;>OurAirports</a>, y radioayudas y aeropuertos de EE. UU. de OurAirports (dominio público). Gracias a <a href=&quot;https://airports.robrc.net/&quot; target=&quot;_blank&quot; rel=&quot;noopener&quot;>airports.robrc.net</a>, que abrió el camino a los datos de la AFAC. Revisa cada pista contra fuentes oficiales vigentes, reportes recientes de pilotos y tus propios ojos."><b>Needs an internet connection: a planning tool for use on the ground. In flight, rely only on what you've installed in ForeFlight.</b> Not for navigation. A planning aid only. Data: AFAC's "Aeródromos y helipuertos" list (gob.mx), Mexico's official airport list with positions from <a href="https://ourairports.com/data/" target="_blank" rel="noopener">OurAirports</a>, and OurAirports navaids and US airports (public domain). With thanks to <a href="https://airports.robrc.net/" target="_blank" rel="noopener">airports.robrc.net</a>, which showed the way to AFAC's data. Check every airstrip against current official sources, recent pilot reports and your own eyes.</p>
   <!-- GGP-FOOTER START v1.15 · 25-Nov-2026 · shared footer, App Conventions §5a · master: Control Panel repo tools/ggp-footer -->
 <footer class="ggp-footer">
   <div class="ggp-back"><a href="https://geezer-geek-pilot-control-panel.netlify.app/" data-es="&larr; Volver a las apps de GeezerGeek Pilot">&larr; Back to GeezerGeek Pilot Apps</a></div>
@@ -480,6 +503,10 @@
 
 <script>
 (() => {
+  // v0.19: English / Español (App Conventions "Language"): static text first, then tx('English', 'Español') for the rest
+  const G = window.ggpLang || { L: (a) => a, es: false, lang: 'en', apply(){}, dmy: s => s, date: s => s };
+  G.apply();
+  const tx = (en, es) => G.L(en, es), ES = G.es;
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
   const title = s => String(s || '').toLowerCase().replace(/(^|[\s(\/.-])(\p{L})/gu, (a, b, c) => b + c.toUpperCase());
@@ -493,6 +520,7 @@
   const okOf = x => x.kind === 'icao' ? !!x.sam : x.cur;
   // AFAC permit status in English (as in Mexican Airstrips' record translation)
   const permitEn = st => { const t = (st || '').toUpperCase();
+    if (ES) return /^VIGENTE/.test(t) ? 'vigente' : /INOPERATIVO/.test(t) ? 'inoperativo' : /CERRADO/.test(t) ? 'cerrado por NOTAM' : /TRAMITE/.test(t) ? 'en trámite' : 'no vigente';
     return /^VIGENTE/.test(t) ? 'current' : /INOPERATIVO/.test(t) ? 'not operating' : /CERRADO/.test(t) ? 'closed by NOTAM' : /TRAMITE/.test(t) ? 'in process' : 'not current'; };
 
   let STR = [], ICAO = [], NAV = [], US = [];
@@ -531,13 +559,13 @@
   }
   function candidates(t){
     const c = [], x = /^X[A-Z0-9]{3}$/.test(t) ? t.slice(1) : null;
-    ICAO.forEach(a => { if (a.code === t) c.push({ ...a, type:'ICAO airport' }); });
-    US.forEach(a => { if (a[0] === t) c.push({ kind:'us', code:a[0], name:a[1], lat:a[2], lon:a[3], type:'US airport' }); });
+    ICAO.forEach(a => { if (a.code === t) c.push({ ...a, type:tx('ICAO airport', 'aeropuerto OACI') }); });
+    US.forEach(a => { if (a[0] === t) c.push({ kind:'us', code:a[0], name:a[1], lat:a[2], lon:a[3], type:tx('US airport', 'aeropuerto de EE. UU.') }); });
     if (c.length) return c;
     // a bare 3-letter ident is a navaid first (as in ForeFlight); an AFAC airstrip when no navaid has it, or when typed with an X in front
-    if (!x) NAV.forEach(n => { if (n[0] === t) c.push({ kind:'nav', code:n[0], name:n[1], lat:n[3], lon:n[4], sv:n[6], type:n[2] + (n[5] === 'US' ? ' (US)' : '') }); });
+    if (!x) NAV.forEach(n => { if (n[0] === t) c.push({ kind:'nav', code:n[0], name:n[1], lat:n[3], lon:n[4], sv:n[6], type:n[2] + (n[5] === 'US' ? tx(' (US)', ' (EE. UU.)') : '') }); });
     if (c.length) return c;
-    STR.forEach(s => { if (s.des && (s.des === t || s.des === x)) c.push({ ...s, type:'AFAC airstrip' }); });
+    STR.forEach(s => { if (s.des && (s.des === t || s.des === x)) c.push({ ...s, type:tx('AFAC airstrip', 'pista de la AFAC') }); });
     return c;
   }
   // v0.5: fix/radial/distance, as ForeFlight takes it: PPE/110/30 (or ICAO style PPE110030) = 30 NM out on PPE's 110 radial.
@@ -548,18 +576,19 @@
     const rad = +m[2], d = +m[3];
     if (rad > 360 || !(d > 0)) return { code:t, bad:true };
     const co = parseCoord(m[1]);
-    let b = co ? { ...co, code:m[1], type:'coordinates' } : null;
+    let b = co ? { ...co, code:m[1], type:tx('coordinates', 'coordenadas') } : null;
     if (!b){ const c = candidates(m[1]); if (!c.length) return { code:t, bad:true }; if (prev && c.length > 1) c.sort((a, z) => gc(prev, a) - gc(prev, z)); b = c[0]; }
     // v0.6: current variation (WMM-2025) at the fix for every fix, VORs included: Wayne's PPE/110/30 test showed ForeFlight
     // places it that way, not on the VOR's station declination (b.sv, kept in navaids.json, now unused)
     let dec, src = 'WMM-2025';
-    try { dec = window.WMM.declination(b.lat, b.lon, new Date()); } catch (e){ dec = 0; src = 'no variation data'; }
+    try { dec = window.WMM.declination(b.lat, b.lon, new Date()); } catch (e){ dec = 0; src = tx('no variation data', 'sin datos de variación'); }
     const tb = (rad % 360 + dec + 360) % 360 * k, la = b.lat * k, lo = b.lon * k, dr = d / R;
     const la2 = Math.asin(Math.sin(la) * Math.cos(dr) + Math.cos(la) * Math.sin(dr) * Math.cos(tb));
     const lo2 = lo + Math.atan2(Math.sin(tb) * Math.sin(dr) * Math.cos(la), Math.cos(dr) - Math.sin(la) * Math.sin(la2));
     const v = `${Math.abs(dec).toFixed(1)}°${dec < 0 ? 'W' : 'E'}`;
     return { code:t, lat:la2 / k, lon:lo2 / k, type:`${b.code} R-${String(rad % 360).padStart(3, '0')}, ${d} NM`,
-      name:`${d} NM out on the ${String(rad % 360).padStart(3, '0')}° radial of ${b.code} ${b.name || ''} (${b.type}); variation ${v} (${src})` };
+      name:ES ? `${d} NM sobre el radial ${String(rad % 360).padStart(3, '0')}° de ${b.code} ${b.name || ''} (${b.type}); variación ${v} (${src})`
+              : `${d} NM out on the ${String(rad % 360).padStart(3, '0')}° radial of ${b.code} ${b.name || ''} (${b.type}); variation ${v} (${src})` };
   }
   function parseRoute(s){
     const toks = s.toUpperCase().split(/\s+/).filter(t => t && t !== 'DCT');
@@ -568,7 +597,7 @@
       const f = parseFRD(t, prev);
       if (f){ out.push(f); if (!f.bad) prev = f; return; }
       const co = parseCoord(t);
-      if (co){ out.push({ code:t, name:'coordinates', type:'coordinates', ...co }); prev = out[out.length - 1]; return; }
+      if (co){ out.push({ code:t, name:tx('coordinates', 'coordenadas'), type:tx('coordinates', 'coordenadas'), ...co }); prev = out[out.length - 1]; return; }
       const c = candidates(t);
       if (!c.length){ out.push({ code:t, bad:true }); return; }
       let ref = prev;
@@ -622,9 +651,9 @@
   const Btns = L.Control.extend({ options:{ position:'topleft' }, onAdd(){
     const bar = L.DomUtil.create('div', 'leaflet-bar');
     const mk = (html, t, fn) => { const a = L.DomUtil.create('a', '', bar); a.href = '#'; a.innerHTML = html; a.title = t; a.setAttribute('role', 'button'); a.setAttribute('aria-label', t); L.DomEvent.on(a, 'click', e => { L.DomEvent.preventDefault(e); fn(); }); return a; };
-    mk(ICON_FIT, 'Zoom to the route', fitRoute);
-    mk(ICON_MX, 'Show all of Mexico', () => map.fitBounds(MEXICO));
-    bigBtn = mk(ICON_BIG, 'Fill the screen', () => setBig(!isBig));
+    mk(ICON_FIT, tx('Zoom to the route', 'Acercar a la ruta'), fitRoute);
+    mk(ICON_MX, tx('Show all of Mexico', 'Ver todo México'), () => map.fitBounds(MEXICO));
+    bigBtn = mk(ICON_BIG, tx('Fill the screen', 'Pantalla completa'), () => setBig(!isBig));
     L.DomEvent.disableClickPropagation(bar);
     return bar;
   } });
@@ -633,7 +662,7 @@
   function setBig(on){
     isBig = on; $('sec2').classList.toggle('big', on); document.body.classList.toggle('sec-big', on);
     bigBtn.innerHTML = on ? ICON_SMALL : ICON_BIG; bigBtn.classList.toggle('on', on);
-    const t = on ? 'Back to the normal size (Esc)' : 'Fill the screen'; bigBtn.title = t; bigBtn.setAttribute('aria-label', t);
+    const t = on ? tx('Back to the normal size (Esc)', 'Volver al tamaño normal (Esc)') : tx('Fill the screen', 'Pantalla completa'); bigBtn.title = t; bigBtn.setAttribute('aria-label', t);
     setTimeout(() => map.invalidateSize(), 60);
   }
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && isBig) setBig(false); });
@@ -650,14 +679,16 @@
     if ($('terc').checked && !(x.kind === 'icao' ? x.sam : x.terc)) return false;
     return true;
   }
-  const rwyText = x => (x.rwy ? 'RWY ' + x.rwy.split('/').map(pad2).join('/') : 'RWY —') + ' · ' + (x.len ? ft(x.len) + ' ft' + (surfOf(x) ? ' ' + surfOf(x) : '') : 'length —');
+  const SURF_ES = { paved:'pavimentada', dirt:'terracería', water:'agua' };
+  const surfWord = x => { const s = surfOf(x); return s && ES ? SURF_ES[s] : s; };
+  const rwyText = x => (x.rwy ? 'RWY ' + x.rwy.split('/').map(pad2).join('/') : 'RWY —') + ' · ' + (x.len ? ft(x.len) + ' ft' + (surfOf(x) ? ' ' + surfWord(x) : '') : tx('length —', 'longitud —'));
   const tagsOf = x => x.kind === 'icao'
-    ? (x.sam ? '<span class="tag ok">on official airport list</span>' : '<span class="tag no">not on official airport list</span>')
-    : (x.cur ? '<span class="tag ok">permit current</span>' : `<span class="tag no">${esc('permit ' + permitEn(x.status))}</span>`) + (x.terc ? '<span class="tag tp">third-party</span>' : '');
+    ? (x.sam ? `<span class="tag ok">${tx('on official airport list', 'en la lista oficial de aeropuertos')}</span>` : `<span class="tag no">${tx('not on official airport list', 'no está en la lista oficial de aeropuertos')}</span>`)
+    : (x.cur ? `<span class="tag ok">${tx('permit current', 'permiso vigente')}</span>` : `<span class="tag no">${esc(tx('permit ', 'permiso ') + permitEn(x.status))}</span>`) + (x.terc ? `<span class="tag tp">${tx('third-party', 'a terceros')}</span>` : '');
   function info(x){
-    if (x.kind === 'icao') return `<span class="code" style="color:#7fd6ee">${esc(x.code)}</span> ${esc(title(x.name))}<br><span class="sub">ICAO airport · ${esc(rwyText(x))}</span><br>${tagsOf(x)}`;
-    return `${x.des ? `<span class="code">${esc(x.des)}</span> ` : ''}${esc(title(x.name))}${x.des ? '' : ' <span class="sub">(no AFAC designator)</span>'}`
-      + `<br><span class="sub">${esc(title([x.muni, x.state].filter(Boolean).join(', ')))}<br>${x.elev != null ? ft(x.elev) + ' ft' : 'elev —'} · ${esc(rwyText(x))}</span>`
+    if (x.kind === 'icao') return `<span class="code" style="color:#7fd6ee">${esc(x.code)}</span> ${esc(title(x.name))}<br><span class="sub">${tx('ICAO airport', 'aeropuerto OACI')} · ${esc(rwyText(x))}</span><br>${tagsOf(x)}`;
+    return `${x.des ? `<span class="code">${esc(x.des)}</span> ` : ''}${esc(title(x.name))}${x.des ? '' : ` <span class="sub">${tx('(no AFAC designator)', '(sin designador de la AFAC)')}</span>`}`
+      + `<br><span class="sub">${esc(title([x.muni, x.state].filter(Boolean).join(', ')))}<br>${x.elev != null ? ft(x.elev) + ' ft' : tx('elev —', 'elev. —')} · ${esc(rwyText(x))}</span>`
       + `<br>${tagsOf(x)}`;
   }
 
@@ -687,8 +718,8 @@
     ['METALICA', 'metal'], ['METÁLICA', 'metal'], ['CON', 'with'], ['DE', 'of'], ['Y', 'and'],
   ];
   const ES_EN_RX = ES_EN.map(([es, en]) => [new RegExp('(^|[^A-ZÁÉÍÓÚÑ])' + es.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?=$|[^A-ZÁÉÍÓÚÑ])', 'g'), en]);
-  const LANG_KEY = 'mxEmergency.lang';
-  let lang = 'en'; try { lang = localStorage.getItem(LANG_KEY) === 'es' ? 'es' : 'en'; } catch(e){}
+  // v0.19: the record opens in the page's language (the record's own toggle still switches it for this visit)
+  let lang = G.lang === 'es' ? 'es' : 'en';
   function tr(v){
     if (!v || lang === 'es') return v || '';
     let t = String(v).toUpperCase();
@@ -702,18 +733,18 @@
     const tbl = rows => `<table class="rec">${rows.map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join('')}</table>`;
     if (x.kind === 'icao'){
       return `<div class="det" data-key="${esc(x.code)}">` + tbl([
-        ['Type', 'ICAO airport' + (x.sam ? '' : ' <span class="tag no">not on official airport list</span>')],
-        ['Reference point', `<span class="mono">${x.lat.toFixed(5)}, ${x.lon.toFixed(5)}</span>`],
-        ['Longest open runway', x.rwy || x.len ? `<span class="mono">${esc(x.rwy ? x.rwy.split('/').map(pad2).join('/') : '—')}${x.len ? ' · ' + ft(x.len) + ' ft' : ''}</span>` : '—'],
-        ['Surface', esc(x.surfCode || '—')],
-      ]) + `<div class="src">Runway from OurAirports; permit = on Mexico's official airport list. AFAC's aerodrome list doesn't carry ICAO airports. Check the chart supplement / AIP in ForeFlight for details.</div></div>`;
+        [tx('Type', 'Tipo'), tx('ICAO airport', 'aeropuerto OACI') + (x.sam ? '' : ` <span class="tag no">${tx('not on official airport list', 'no está en la lista oficial de aeropuertos')}</span>`)],
+        [tx('Reference point', 'Punto de referencia'), `<span class="mono">${x.lat.toFixed(5)}, ${x.lon.toFixed(5)}</span>`],
+        [tx('Longest open runway', 'Pista abierta más larga'), x.rwy || x.len ? `<span class="mono">${esc(x.rwy ? x.rwy.split('/').map(pad2).join('/') : '—')}${x.len ? ' · ' + ft(x.len) + ' ft' : ''}</span>` : '—'],
+        [tx('Surface', 'Superficie'), esc(x.surfCode || '—')],
+      ]) + `<div class="src">${tx("Runway from OurAirports; permit = on Mexico's official airport list. AFAC's aerodrome list doesn't carry ICAO airports. Check the chart supplement / AIP in ForeFlight for details.", 'Pista de OurAirports; permiso = está en la lista oficial de aeropuertos de México. La lista de aeródromos de la AFAC no incluye los aeropuertos OACI. Revisa el Chart Supplement / AIP en ForeFlight para los detalles.')}</div></div>`;
     }
     const r = x.rec || {}, T = LABELS[lang];
     const nad27 = /NAD/i.test(r.datum || ''), cur = /^VIGENTE/.test(r.status || '');
     const rw = (r.rwy || []).filter(Boolean);
     const pos = r.lat != null ? `${r.lat.toFixed(5)}, ${r.lon.toFixed(5)} (${esc(r.datum || T.none)})${nad27 ? `<span class="tag no">NAD 27</span><br><span class="sub">${T.datumWarn}</span>` : ''}` : T.none;
     const lg = l => `<button type="button" data-lang="${l}" class="${lang === l ? 'on' : ''}" aria-pressed="${lang === l}">${l === 'en' ? 'English' : 'Español'}</button>`;
-    return `<div class="det" data-key="${esc(x.key)}"><div class="lang" role="group" aria-label="Language of the AFAC record">${lg('en')}${lg('es')}</div>` + tbl([
+    return `<div class="det" data-key="${esc(x.key)}"><div class="lang" role="group" aria-label="${tx('Language of the AFAC record', 'Idioma del registro de la AFAC')}">${lg('en')}${lg('es')}</div>` + tbl([
       [T.loc, esc([r.muni, r.state].filter(Boolean).join(', ') || '—')],
       [T.type, esc([tr(r.type), tr(r.cls), r.ref ? T.code + ' ' + r.ref : ''].filter(Boolean).join(' · ') || '—')],
       [T.ref, `<span class="mono">${pos}</span>`],
@@ -731,7 +762,7 @@
   // language toggle inside any open record (list row or map pop-up)
   document.addEventListener('click', e => {
     const b = e.target.closest('.det .lang button'); if (!b) return;
-    e.stopPropagation(); lang = b.dataset.lang; try { localStorage.setItem(LANG_KEY, lang); } catch(err){}
+    e.stopPropagation(); lang = b.dataset.lang;
     document.querySelectorAll('.det').forEach(d => {
       const k = d.dataset.key, x = STR.find(y => y.key === k) || ICAO.find(y => y.code === k);
       if (x){ const n = document.createElement('div'); n.innerHTML = detailHtml(x); d.replaceWith(n.firstChild); }
@@ -741,7 +772,7 @@
   // map-dot pop-up: the short summary plus a "Full AFAC record" link that opens the whole record in place
   function popupEl(x, layer){
     const d = document.createElement('div');
-    d.innerHTML = info(x) + `<br><button type="button" class="lnk more">${x.kind === 'icao' ? 'More details' : 'Full AFAC record'}</button>`;
+    d.innerHTML = info(x) + `<br><button type="button" class="lnk more">${x.kind === 'icao' ? tx('More details', 'Más detalles') : tx('Full AFAC record', 'Registro completo de la AFAC')}</button>`;
     d.querySelector('.more').addEventListener('click', ev => { ev.stopPropagation(); d.innerHTML = info(x) + detailHtml(x); if (layer && layer.getPopup()) layer.getPopup().update(); });
     return d;
   }
@@ -770,7 +801,8 @@
     rows.sort((a, b) => a.along - b.along);
     if (W.length < 2){
       GAP = null; $('ffBtn').disabled = true;
-      $('list').innerHTML = `<div class="cnt">${all.length.toLocaleString('en-US')} airstrips and airports with these filters</div><div class="row note">Enter a route above to list the ones along it. Tap a dot for its details and full AFAC record.</div>`;
+      $('list').innerHTML = ES ? `<div class="cnt">${all.length.toLocaleString('en-US')} pistas y aeropuertos con estos filtros</div><div class="row note">Escribe una ruta arriba para ver los que quedan a lo largo de ella. Toca un punto para ver sus datos y el registro completo de la AFAC.</div>`
+        : `<div class="cnt">${all.length.toLocaleString('en-US')} airstrips and airports with these filters</div><div class="row note">Enter a route above to list the ones along it. Tap a dot for its details and full AFAC record.</div>`;
       declutter(); return;
     }
     const total = routeLen();
@@ -791,16 +823,18 @@
       const m = L.marker([x.lat, x.lon], { icon:icon(x.kind === 'icao' || x.des ? x.code : title(x.name), 'lab ' + (x.kind === 'icao' ? 'icao' : ''), style, 12), keyboard:false });
       m.on('click', () => { if (openKey !== (x.key || x.code)) toggleRec(i); select(i, true); }); m.addTo(labLayer); x.m = m;
     });
-    $('list').innerHTML = `<div class="cnt">${rows.length} within ${corridor} NM of the ${nm0(total)} NM route · in route order · tap a row for its full record<br><span id="tickCnt"></span><button class="lnk" id="tickAll" type="button">all</button><button class="lnk" id="tickNone" type="button">none</button></div>`
-      + (gap.len > 1 ? `<div class="gaprow">Longest stretch with nothing in the corridor: <b>${nm0(gap.len)} NM</b>, from ${nm0(gap.a)} to ${nm0(gap.b)} NM along the route (red on the map).</div>` : '')
-      + (rows.length ? '' : '<div class="row note">Nothing in the corridor with these filters.</div>')
+    $('list').innerHTML = (ES ? `<div class="cnt">${rows.length} a no más de ${corridor} NM de la ruta de ${nm0(total)} NM · en orden de ruta · toca un renglón para ver su registro completo<br><span id="tickCnt"></span><button class="lnk" id="tickAll" type="button">todas</button><button class="lnk" id="tickNone" type="button">ninguna</button></div>`
+        : `<div class="cnt">${rows.length} within ${corridor} NM of the ${nm0(total)} NM route · in route order · tap a row for its full record<br><span id="tickCnt"></span><button class="lnk" id="tickAll" type="button">all</button><button class="lnk" id="tickNone" type="button">none</button></div>`)
+      + (gap.len > 1 ? (ES ? `<div class="gaprow">Tramo más largo sin nada en el corredor: <b>${nm0(gap.len)} NM</b>, del NM ${nm0(gap.a)} al ${nm0(gap.b)} de la ruta (en rojo en el mapa).</div>`
+        : `<div class="gaprow">Longest stretch with nothing in the corridor: <b>${nm0(gap.len)} NM</b>, from ${nm0(gap.a)} to ${nm0(gap.b)} NM along the route (red on the map).</div>`) : '')
+      + (rows.length ? '' : `<div class="row note">${tx('Nothing in the corridor with these filters.', 'Nada en el corredor con estos filtros.')}</div>`)
       + rows.map((x, i) => {
-        const sub = x.kind === 'icao' ? 'ICAO airport · ' + rwyText(x)
-          : [title([x.muni, x.state].filter(Boolean).join(', ')), x.elev != null ? ft(x.elev) + ' ft' : 'elev —', rwyText(x)].join(' · ');
+        const sub = x.kind === 'icao' ? tx('ICAO airport', 'aeropuerto OACI') + ' · ' + rwyText(x)
+          : [title([x.muni, x.state].filter(Boolean).join(', ')), x.elev != null ? ft(x.elev) + ' ft' : tx('elev —', 'elev. —'), rwyText(x)].join(' · ');
         const tag = tagsOf(x);
-        const label = x.kind !== 'icao' && !x.des ? `${esc(title(x.name))} <span class="sub">(no AFAC designator)</span>` : `<span class="code ${x.kind === 'icao' ? 'icao' : ''}">${esc(x.code)}</span>${esc(title(x.name))}`;
-        const tick = x.kind === 'afac' ? `<input type="checkbox" class="tick" data-t="${i}" aria-label="Send ${esc(x.code)} to ForeFlight"${skip.has(x.key) ? '' : ' checked'}>` : '';
-        return `<div class="row${x.kind === 'afac' && skip.has(x.key) ? ' off' : ''}" data-i="${i}"><div class="top"><span>${tick}${label}</span><span class="rng">${nm0(x.along)} NM · ${x.xt < 0.5 ? 'on course' : x.xt.toFixed(0) + ' NM ' + x.side}</span></div><div class="sub">${esc(sub)} ${tag}</div>${openKey === (x.key || x.code) ? detailHtml(x) : ''}</div>`;
+        const label = x.kind !== 'icao' && !x.des ? `${esc(title(x.name))} <span class="sub">${tx('(no AFAC designator)', '(sin designador de la AFAC)')}</span>` : `<span class="code ${x.kind === 'icao' ? 'icao' : ''}">${esc(x.code)}</span>${esc(title(x.name))}`;
+        const tick = x.kind === 'afac' ? `<input type="checkbox" class="tick" data-t="${i}" aria-label="${tx('Send', 'Mandar')} ${esc(x.code)} ${tx('to ForeFlight', 'a ForeFlight')}"${skip.has(x.key) ? '' : ' checked'}>` : '';
+        return `<div class="row${x.kind === 'afac' && skip.has(x.key) ? ' off' : ''}" data-i="${i}"><div class="top"><span>${tick}${label}</span><span class="rng">${nm0(x.along)} NM · ${x.xt < 0.5 ? tx('on course', 'sobre el curso') : x.xt.toFixed(0) + ' NM ' + (ES ? (x.side === 'L' ? 'izq.' : 'der.') : x.side)}</span></div><div class="sub">${esc(sub)} ${tag}</div>${openKey === (x.key || x.code) ? detailHtml(x) : ''}</div>`;
       }).join('');
     $('list').querySelectorAll('.row[data-i]').forEach(el => el.addEventListener('click', e => { if (e.target.classList.contains('tick') || e.target.closest('.det')) return; toggleRec(+el.dataset.i); select(+el.dataset.i, false); }));
     $('list').querySelectorAll('.tick').forEach(cb => cb.addEventListener('change', () => { const x = rows[+cb.dataset.t]; cb.checked ? skip.delete(x.key) : skip.add(x.key); cb.closest('.row').classList.toggle('off', !cb.checked); tickCount(); }));
@@ -814,14 +848,15 @@
   // ---------- v0.3: ForeFlight content pack ----------
   const skip = new Set();   // AFAC airstrips unticked in the list (keys survive filter changes)
   const ticked = () => rows.filter(x => x.kind === 'afac' && !skip.has(x.key));
-  function tickCount(){ const n = ticked().length, el = $('tickCnt'); if (el) el.textContent = `${n} ticked for ForeFlight ·`; $('ffBtn').disabled = W.length < 2; }
+  function tickCount(){ const n = ticked().length, el = $('tickCnt'); if (el) el.textContent = ES ? `${n} marcadas para ForeFlight ·` : `${n} ticked for ForeFlight ·`; $('ffBtn').disabled = W.length < 2; }
   const FF_KEY = 'mxEmergency.ff', FF_VIS_KEY = 'mxEmergency.ff.visCautionV1';
   const ffIds = { route:'ffRoute', corridor:'ffCor', waypoints:'ffWp', runways:'ffRw', patterns:'ffPat', visuals:'ffVis' };
   function ffOpen(){
     try { const o = JSON.parse(localStorage.getItem(FF_KEY) || '{}'); Object.entries(ffIds).forEach(([k, id]) => { if (k in o) $(id).checked = !!o[k]; }); } catch (e){}
     try { if ($('ffVis').checked && localStorage.getItem(FF_VIS_KEY) !== 'ok') $('ffVis').checked = false; } catch (e){}
     const n = ticked().length, ic = rows.filter(x => x.kind === 'icao').length;
-    $('ffSum').textContent = `${n} airstrip${n === 1 ? '' : 's'} ticked in the list for ${W.map(w => w.code).join(' ')}` + (ic ? `; ${ic} ICAO airport${ic > 1 ? 's are' : ' is'} left out (already in ForeFlight).` : '.');
+    $('ffSum').textContent = ES ? `${n} pista${n === 1 ? '' : 's'} marcada${n === 1 ? '' : 's'} en la lista para ${W.map(w => w.code).join(' ')}` + (ic ? `; ${ic} aeropuerto${ic > 1 ? 's' : ''} OACI se queda${ic > 1 ? 'n' : ''} fuera (ya está${ic > 1 ? 'n' : ''} en ForeFlight).` : '.')
+      : `${n} airstrip${n === 1 ? '' : 's'} ticked in the list for ${W.map(w => w.code).join(' ')}` + (ic ? `; ${ic} ICAO airport${ic > 1 ? 's are' : ' is'} left out (already in ForeFlight).` : '.');
     $('ffRes').hidden = true; $('ffStatus').textContent = ''; $('ffStatus').className = 'status'; $('ffCaution').hidden = true;
     $('ffOvl').hidden = false;
   }
@@ -831,7 +866,7 @@
   $('ffClose').addEventListener('click', ffClose);
   $('ffOvl').addEventListener('click', e => { if (e.target === $('ffOvl')) ffClose(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('ffOvl').hidden) ffClose(); });
-  $('ffCautionTxt').textContent = FF.VIS_CAUTION.replace(/^CAUTION: ADVISORY ONLY\. /, '');
+  $('ffCautionTxt').textContent = FF.VIS_CAUTION.replace(/^CAUTION: ADVISORY ONLY\. /, '').replace(/^PRECAUCIÓN: SOLO ORIENTATIVA\. /, '');
   // turning visual approaches on asks for the caution (as in Mexican Airstrips); remembered on the device until turned off
   $('ffVis').addEventListener('change', () => {
     if ($('ffVis').checked){ $('ffVis').checked = false; $('ffCaution').hidden = false; $('ffVisOk').focus(); }
@@ -845,23 +880,24 @@
   // v0.9: the filters in words, for the gap line's description in the pack
   function filterText(){
     const f = [];
-    if (+$('minLen').value) f.push('runway ' + $('minLen').selectedOptions[0].textContent + '+');
-    if ($('paved').checked) f.push('paved only');
-    if ($('cur').checked) f.push('current permit');
-    if ($('terc').checked) f.push('open to third parties');
-    if (!$('icao').checked) f.push('no ICAO airports');
-    return f.length ? f.join(', ') : 'no filters';
+    if (+$('minLen').value) f.push(tx('runway ', 'pista de ') + $('minLen').selectedOptions[0].textContent + '+');
+    if ($('paved').checked) f.push(tx('paved only', 'solo pavimentadas'));
+    if ($('cur').checked) f.push(tx('current permit', 'permiso vigente'));
+    if ($('terc').checked) f.push(tx('open to third parties', 'abiertas a terceros'));
+    if (!$('icao').checked) f.push(tx('no ICAO airports', 'sin aeropuertos OACI'));
+    return f.length ? f.join(', ') : tx('no filters', 'sin filtros');
   }
   $('ffBuild').addEventListener('click', async () => {
     const opt = {}; Object.entries(ffIds).forEach(([k, id]) => { opt[k] = $(id).checked; });
     const list = ticked().map(x => ({ des:x.des, name:x.name, muni:x.muni, state:x.state, elev:x.elev, lat:x.lat, lon:x.lon, rwyArr:x.rwyArr, len:x.len, wid:x.wid, surf:x.surf, status:x.status, terc:x.terc, rec:x.rec, along:x.along, xt:x.xt, side:x.side }));
-    if (!list.length && !opt.route && !opt.corridor){ $('ffStatus').className = 'status warn'; $('ffStatus').textContent = 'Nothing to send: tick some airstrips in the list, the route or the corridor.'; return; }
+    if (!list.length && !opt.route && !opt.corridor){ $('ffStatus').className = 'status warn'; $('ffStatus').textContent = tx('Nothing to send: tick some airstrips in the list, the route or the corridor.', 'Nada que mandar: marca algunas pistas en la lista, la ruta o el corredor.'); return; }
     $('ffBuild').disabled = true; $('ffRes').hidden = true; $('ffStatus').className = 'status';
     try {
-      const out = await FF.build({ W, corridorRings, corridor, airstrips:list, opt, edition:$('afacEd').textContent, gap:GAP, filters:filterText(), trEn:v => { const l = lang; lang = 'en'; const t = tr(v); lang = l; return t; }, progress:t => { $('ffStatus').textContent = t; } });
+      const out = await FF.build({ W, corridorRings, corridor, airstrips:list, opt, edition:$('afacEd').textContent, gap:GAP, filters:filterText(), es:ES, trEn:v => { const l = lang; lang = 'en'; const t = tr(v); lang = l; return t; }, progress:t => { $('ffStatus').textContent = t; } });
       $('ffOpen').href = 'https://foreflight.com/content?downloadURL=' + encodeURIComponent(out.url);
       $('ffDl').href = out.url;
-      $('ffStatus').className = 'status'; $('ffStatus').innerHTML = `Pack <b>${esc(out.title)}</b> is ready (${list.length} airstrip${list.length === 1 ? '' : 's'}).` + (IOS ? '' : ' Open in ForeFlight works on iPhone and iPad; here, download the .zip.');
+      $('ffStatus').className = 'status'; $('ffStatus').innerHTML = (ES ? `El paquete <b>${esc(out.title)}</b> está listo (${list.length} pista${list.length === 1 ? '' : 's'}).` : `Pack <b>${esc(out.title)}</b> is ready (${list.length} airstrip${list.length === 1 ? '' : 's'}).`)
+        + (IOS ? '' : tx(' Open in ForeFlight works on iPhone and iPad; here, download the .zip.', ' "Abrir en ForeFlight" funciona en iPhone y iPad; aquí, descarga el .zip.'));
       $('ffNotes').innerHTML = out.notes.map(n => `<li>${esc(n)}</li>`).join('') + (opt.waypoints && out.wps.length ? `<li>Waypoints: ${esc(out.wps.join(', '))}</li>` : '');
       $('ffBuilt').textContent = out.built;
       $('ffRes').hidden = false;
@@ -869,7 +905,8 @@
     $('ffBuild').disabled = false;
   });
   $('ffOpen').addEventListener('click', e => { if (!IOS){ e.preventDefault(); $('ffStatus').className = 'status warn';
-    $('ffStatus').innerHTML = 'ForeFlight runs on iPhone and iPad, so "Open in ForeFlight" only works there (on this device the link just opens ForeFlight\'s website). Open this page on the iPad instead, or <button class="linkbtn" type="button" id="ffDlNow">download the ForeFlight pack (.zip)</button> here and AirDrop or email it to the iPad.';
+    $('ffStatus').innerHTML = tx('ForeFlight runs on iPhone and iPad, so "Open in ForeFlight" only works there (on this device the link just opens ForeFlight\'s website). Open this page on the iPad instead, or <button class="linkbtn" type="button" id="ffDlNow">download the ForeFlight pack (.zip)</button> here and AirDrop or email it to the iPad.',
+      'ForeFlight funciona en iPhone y iPad, así que "Abrir en ForeFlight" solo funciona ahí (en este dispositivo el enlace solo abre el sitio web de ForeFlight). Abre esta página en el iPad, o <button class="linkbtn" type="button" id="ffDlNow">descarga el paquete de ForeFlight (.zip)</button> aquí y mándalo al iPad por AirDrop o correo.');
     $('ffDlNow').onclick = () => $('ffDl').click(); } });
 
   // v0.2: corridor edges, as in ForeFlight (Wayne): one capsule per leg (rounded ends), merged into one outline
@@ -914,13 +951,14 @@
     // v0.10: an empty box shows the example route in its placeholder (Wayne: after Clear, Show route did nothing)
     if (!$('route').value.trim()) $('route').value = $('route').placeholder;
     const P = parseRoute($('route').value);
-    $('chips').innerHTML = P.map(p => p.bad ? `<span class="chip bad">${esc(p.code)}<small>not found</small></span>`
-      : `<span class="chip" title="${esc(p.name)}">${esc(p.code)}<small>${esc(p.type)}${p.alts ? ' · nearest of ' + (p.alts + 1) : ''}</small></span>`).join('');
+    $('chips').innerHTML = P.map(p => p.bad ? `<span class="chip bad">${esc(p.code)}<small>${tx('not found', 'no encontrado')}</small></span>`
+      : `<span class="chip" title="${esc(p.name)}">${esc(p.code)}<small>${esc(p.type)}${p.alts ? (ES ? ' · el más cercano de ' : ' · nearest of ') + (p.alts + 1) : ''}</small></span>`).join('');
     W = P.filter(p => !p.bad);
     const bad = P.filter(p => p.bad).length;
     $('rStatus').className = 'status';
-    $('rStatus').innerHTML = W.length < 2 ? (P.length ? '<span class="warn">Need at least two waypoints the app can place.</span>' : '')
-      : `<b>${W.length} waypoints</b>, ${nm0(routeLen())} NM in great-circle legs.` + (bad ? ` <span class="warn">${bad} not found and left out.</span>` : '');
+    $('rStatus').innerHTML = W.length < 2 ? (P.length ? `<span class="warn">${tx('Need at least two waypoints the app can place.', 'Se necesitan al menos dos waypoints que la app pueda ubicar.')}</span>` : '')
+      : (ES ? `<b>${W.length} waypoints</b>, ${nm0(routeLen())} NM en tramos de círculo máximo.` + (bad ? ` <span class="warn">${bad} no encontrado${bad > 1 ? 's' : ''} y omitido${bad > 1 ? 's' : ''}.</span>` : '')
+        : `<b>${W.length} waypoints</b>, ${nm0(routeLen())} NM in great-circle legs.` + (bad ? ` <span class="warn">${bad} not found and left out.</span>` : ''));
     if (W.length < 2) W = [];
     save(); render(fit);
   }
@@ -933,7 +971,7 @@
   ['minLen', 'paved', 'cur', 'terc', 'icao'].forEach(id => $(id).addEventListener('change', () => { save(); render(false); }));
   function setList(hidden){
     S.noList = hidden; $('map').parentElement.classList.toggle('nolist', hidden);
-    $('listBtn').textContent = hidden ? 'Show list' : 'Hide list'; $('listBtn').setAttribute('aria-expanded', String(!hidden));
+    $('listBtn').textContent = hidden ? tx('Show list', 'Mostrar lista') : tx('Hide list', 'Ocultar lista'); $('listBtn').setAttribute('aria-expanded', String(!hidden));
     setTimeout(() => map.invalidateSize(), 60);
   }
   $('listBtn').addEventListener('click', () => { setList(!S.noList); save(); });
@@ -961,12 +999,12 @@
       ICAO = icao.airports.map(a => { const w = irw.runways[a.code];
         return { kind:'icao', code:a.code, name:a.name, lat:a.lat, lon:a.lon, sam:!!a.sam, rwy:w && /^\d/.test(w[0]) ? w[0] : '', len:w && w[1] ? w[1] / 3.28084 : null, surfCode:w ? w[2] : '' }; });
       NAV = nav.navaids; US = us.airports;
-      if (afac.source && afac.source.edition){ $('afacEd').textContent = afac.source.edition; AFAC_ED = afac.source.edition; }
+      if (afac.source && afac.source.edition){ $('afacEd').textContent = G.dmy(afac.source.edition); AFAC_ED = G.dmy(afac.source.edition); }
       $('rStatus').textContent = '';
       if ($('route').value.trim()) go(true); else render(false);
     } catch (e){
       $('rStatus').className = 'status warn';
-      $('rStatus').textContent = 'Could not load the aerodrome data (' + e.message + '). Try again in a minute.';
+      $('rStatus').textContent = tx('Could not load the aerodrome data (', 'No se pudieron cargar los datos de aeródromos (') + e.message + tx('). Try again in a minute.', '). Intenta de nuevo en un minuto.');
     }
   }
 

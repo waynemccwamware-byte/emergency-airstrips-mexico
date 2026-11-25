@@ -17,8 +17,11 @@
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
   const ft = m => Math.round(m / 0.3048);
   const pad2 = s => /^\d$/.test(String(s).trim()) ? '0' + String(s).trim() : String(s).trim();
-  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const today = () => { const d = new Date(); return `${String(d.getDate()).padStart(2, '0')}-${MONTHS[d.getMonth()]}-${d.getFullYear()}`; };
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  // v0.19: the pack's text follows the page language (set per build); identifiers and file names stay as they are
+  let ES = false;
+  const tx = (en, es) => ES ? es : en;
+  const today = () => { const d = new Date(); return `${String(d.getDate()).padStart(2, '0')}-${(ES ? MESES : MONTHS)[d.getMonth()]}-${d.getFullYear()}`; };
   const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
 
   // ---------- geodesy (as in Mexican Airstrips) ----------
@@ -84,7 +87,7 @@
       const list = (await osmRunways(r)).filter(x => { const t = track(x.a, x.b, [r.lat, r.lon]); return Math.abs(t.cross) < 1500 && t.along > -1500 && t.along < t.len + 1500; });
       list.sort((x, y) => Math.abs(track(x.a, x.b, [r.lat, r.lon]).cross) - Math.abs(track(y.a, y.b, [r.lat, r.lon]).cross));
       rw = list[0] || null;
-    } catch (e){ osmNote = 'OpenStreetMap unavailable'; }
+    } catch (e){ osmNote = tx('OpenStreetMap unavailable', 'OpenStreetMap no disponible'); }
     if (!rw) rw = starterRunway(r);
     if (!rw) return null;
     const tb = brg(rw.a, rw.b);
@@ -92,7 +95,8 @@
     if (des.length === 2){ const fit = n => Math.abs(angDiff(n * 10, tb)); const [x, y] = fit(des[0]) <= fit(des[1]) ? des : [des[1], des[0]]; rw.labA = pad2(x); rw.labB = pad2(y); }
     if (!rw.labA){ const v = variation(rw.a[0], rw.a[1]); if (v != null){ const num = h => Math.round((((h - v) % 360) + 360) % 360 / 10) || 36; rw.labA = pad2(num(tb)); rw.labB = pad2(num((tb + 180) % 360)); rw.labEst = true; } }
     rw.width = r.wid || rw.width || 15;
-    rw.src = rw.starter ? `estimated from AFAC's point, runway numbers and length (WMM-2025 variation); not checked against imagery${osmNote ? ' (' + osmNote + ')' : ''}` : 'OpenStreetMap runway (© OpenStreetMap contributors, ODbL)';
+    rw.src = rw.starter ? tx(`estimated from AFAC's point, runway numbers and length (WMM-2025 variation); not checked against imagery`, 'estimada a partir del punto, números de pista y longitud de la AFAC (variación WMM-2025); no revisada contra imágenes') + (osmNote ? ' (' + osmNote + ')' : '')
+      : tx('OpenStreetMap runway (© OpenStreetMap contributors, ODbL)', 'pista de OpenStreetMap (© colaboradores de OpenStreetMap, ODbL)');
     return rw;
   }
 
@@ -103,8 +107,8 @@
     const mid = (p, q, f = 0.5) => [p[0] + (q[0] - p[0]) * f, p[1] + (q[1] - p[1]) * f];
     const Fa = dest(rw.a, h + 180, w), Fb = dest(rw.b, h, w);
     const out = [-90, 90].map(o => { const Pa = dest(Fa, h + o, w), Pb = dest(Fb, h + o, w);
-      return { name: `RWY ${A} ${o < 0 ? 'left' : 'right'} / RWY ${B} ${o < 0 ? 'right' : 'left'} traffic`, lines: [[Pa, Pb], [Pa, Fa], [Pb, Fb]], arrows: [[mid(Pa, Pb, 0.28), h + 180], [mid(Pa, Pb, 0.72), h]], dots: [mid(Pa, Pb)] }; });
-    out.push({ name: `RWY ${A} and ${B} final`, lines: [[Fa, rw.a], [Fb, rw.b]], arrows: [], dots: [] });
+      return { name: ES ? `circuito RWY ${A} por la ${o < 0 ? 'izquierda' : 'derecha'} / RWY ${B} por la ${o < 0 ? 'derecha' : 'izquierda'}` : `RWY ${A} ${o < 0 ? 'left' : 'right'} / RWY ${B} ${o < 0 ? 'right' : 'left'} traffic`, lines: [[Pa, Pb], [Pa, Fa], [Pb, Fb]], arrows: [[mid(Pa, Pb, 0.28), h + 180], [mid(Pa, Pb, 0.72), h]], dots: [mid(Pa, Pb)] }; });
+    out.push({ name: ES ? `final RWY ${A} y ${B}` : `RWY ${A} and ${B} final`, lines: [[Fa, rw.a], [Fb, rw.b]], arrows: [], dots: [] });
     return out;
   }
   function dashes(leg, on, off){ const [p, q] = leg, L = dist(p, q), segs = [], at = f => [p[0] + (q[0] - p[0]) * f, p[1] + (q[1] - p[1]) * f]; for (let x = 0; x < L; x += on + off) segs.push([at(x / L), at(Math.min(L, x + on) / L)]); return segs; }
@@ -131,7 +135,9 @@
 
   // ---------- visual approaches (Mexican Airstrips v0.67–v0.78), terrain via netlify/functions/terrain.js ----------
   const TER_Z = 12, TAN3 = Math.tan(rad(3)), TAN2 = Math.tan(rad(2)), FT_PER_M = 1 / 0.3048, VIS_LEN = 5, VIS_START_NM = 0.5, VIS_TOL_FT = 50;
-  const VIS_CAUTION = 'CAUTION: ADVISORY ONLY. FOR SITUATIONAL AWARENESS ONLY. Not an instrument approach procedure and not for navigation. The 3° path, fixes and altitudes are calculated by this app; no authority publishes or checks them. The terrain check uses a terrain model only: no towers, wires, trees or buildings, and it does not guarantee terrain or obstacle clearance. Use only in VMC with the runway in sight. You are responsible for terrain, obstacle and traffic avoidance.';
+  const VIS_CAUTION_ES = 'PRECAUCIÓN: SOLO ORIENTATIVA. SOLO PARA CONCIENCIA SITUACIONAL. No es un procedimiento de aproximación por instrumentos y no es apta para navegación. La trayectoria de 3°, los puntos y las altitudes los calcula esta app; ninguna autoridad los publica ni los revisa. La revisión de terreno usa solo un modelo de terreno: sin torres, cables, árboles ni edificios, y no garantiza el franqueamiento de terreno ni de obstáculos. Úsala solo en VMC con la pista a la vista. Tú eres responsable de evitar terreno, obstáculos y tránsito.';
+  const VIS_CAUTION_EN = 'CAUTION: ADVISORY ONLY. FOR SITUATIONAL AWARENESS ONLY. Not an instrument approach procedure and not for navigation. The 3° path, fixes and altitudes are calculated by this app; no authority publishes or checks them. The terrain check uses a terrain model only: no towers, wires, trees or buildings, and it does not guarantee terrain or obstacle clearance. Use only in VMC with the runway in sight. You are responsible for terrain, obstacle and traffic avoidance.';
+  let VIS_CAUTION = VIS_CAUTION_EN;
   const tiles = new Map(), tileNow = {};
   const tileXY = p => { const n = 2 ** TER_Z, s = Math.log(Math.tan(rad(p[0])) + 1 / Math.cos(rad(p[0]))); return [(p[1] + 180) / 360 * n, (1 - s / Math.PI) / 2 * n]; };
   function getTile(x, y){
@@ -197,24 +203,25 @@
   function routeKml(name, W, a = {}){
     let k = head(name) + style('route', '#ff7a1a', 'ff', 3, null) + style('gap', '#e0302a', 'ff', 4, null) + `<Style id="gaplbl">${ico('red', 0.75)}<LabelStyle><color>ff2a30e0</color><scale>1.0</scale></LabelStyle></Style>\n`;
     const route = W.map(w => [w.lat, w.lon]);
-    k += `<Placemark><name>Route ${esc(W.map(w => w.code).join(' '))}</name><description><![CDATA[Route from Planning Emergency Airstrips in Mexico. NOT FOR NAVIGATION.]]></description><styleUrl>#route</styleUrl><MultiGeometry>${dashPath(route, 3 * NM_M, 1 * NM_M).map(LS).join('')}</MultiGeometry></Placemark>\n`;
+    k += `<Placemark><name>${tx('Route', 'Ruta')} ${esc(W.map(w => w.code).join(' '))}</name><description><![CDATA[${tx('Route from Planning Emergency Airstrips in Mexico. NOT FOR NAVIGATION.', 'Ruta de Planeación de pistas de emergencia en México. NO APTA PARA NAVEGACIÓN.')}]]></description><styleUrl>#route</styleUrl><MultiGeometry>${dashPath(route, 3 * NM_M, 1 * NM_M).map(LS).join('')}</MultiGeometry></Placemark>\n`;
     // v0.9: the longest stretch with nothing in the corridor always goes out with the route (Wayne), dashed red, labeled with its length
     const g = a.gap;
     if (g && g.pts && g.pts.length > 1){
       const nm = Math.round(g.len), cn = a.corridor || 25;
-      const d = `Longest stretch with nothing in the ${cn} NM corridor with this pack's filters (${a.filters || 'no filters'}), from ${Math.round(g.a)} to ${Math.round(g.b)} NM along ${W.map(w => w.code).join(' ')}. Built ${today()}. NOT FOR NAVIGATION.`;
-      k += `<Placemark><name>${esc('No airstrip in corridor: ' + nm + ' NM')}</name><description><![CDATA[${d.replace(/]]>/g, '')}]]></description><styleUrl>#gap</styleUrl><MultiGeometry>${dashPath(g.pts, 2 * NM_M, 1 * NM_M).map(LS).join('')}</MultiGeometry></Placemark>\n`;
+      const d = ES ? `Tramo más largo sin nada en el corredor de ${cn} NM con los filtros de este paquete (${a.filters || 'sin filtros'}), del NM ${Math.round(g.a)} al ${Math.round(g.b)} de ${W.map(w => w.code).join(' ')}. Creado el ${today()}. NO APTO PARA NAVEGACIÓN.`
+        : `Longest stretch with nothing in the ${cn} NM corridor with this pack's filters (${a.filters || 'no filters'}), from ${Math.round(g.a)} to ${Math.round(g.b)} NM along ${W.map(w => w.code).join(' ')}. Built ${today()}. NOT FOR NAVIGATION.`;
+      k += `<Placemark><name>${esc(tx('No airstrip in corridor: ', 'Sin pista en el corredor: ') + nm + ' NM')}</name><description><![CDATA[${d.replace(/]]>/g, '')}]]></description><styleUrl>#gap</styleUrl><MultiGeometry>${dashPath(g.pts, 2 * NM_M, 1 * NM_M).map(LS).join('')}</MultiGeometry></Placemark>\n`;
       // label at the stretch's halfway point along the route
       let tot = 0; for (let i = 1; i < g.pts.length; i++) tot += dist(g.pts[i - 1], g.pts[i]);
       let m2 = g.pts[0], acc = 0;
       for (let i = 1; i < g.pts.length; i++){ const L = dist(g.pts[i - 1], g.pts[i]); if (acc + L >= tot / 2){ const t = L ? (tot / 2 - acc) / L : 0; m2 = [g.pts[i - 1][0] + t * (g.pts[i][0] - g.pts[i - 1][0]), g.pts[i - 1][1] + t * (g.pts[i][1] - g.pts[i - 1][1])]; break; } acc += L; }
-      k += `<Placemark><name>${esc('No airstrip in corridor: ' + nm + ' NM')}</name><description><![CDATA[${d.replace(/]]>/g, '')}]]></description><styleUrl>#gaplbl</styleUrl><Point><coordinates>${m2[1].toFixed(6)},${m2[0].toFixed(6)},0</coordinates></Point></Placemark>\n`;
+      k += `<Placemark><name>${esc(tx('No airstrip in corridor: ', 'Sin pista en el corredor: ') + nm + ' NM')}</name><description><![CDATA[${d.replace(/]]>/g, '')}]]></description><styleUrl>#gaplbl</styleUrl><Point><coordinates>${m2[1].toFixed(6)},${m2[0].toFixed(6)},0</coordinates></Point></Placemark>\n`;
     }
     return k + '</Document></kml>\n';
   }
   function corridorKml(name, corridorRings, corNM){
     let k = head(name) + style('corr', '#ff7a1a', 'ff', 2.5, null);
-    k += `<Placemark><name>Corridor ${corNM} NM</name><description><![CDATA[${corNM} NM either side of the route. NOT FOR NAVIGATION.]]></description><styleUrl>#corr</styleUrl><MultiGeometry>${corridorRings.map(r => dashPath(r, 1.5 * NM_M, 1 * NM_M).map(LS).join('')).join('')}</MultiGeometry></Placemark>\n`;
+    k += `<Placemark><name>${tx('Corridor', 'Corredor')} ${corNM} NM</name><description><![CDATA[${ES ? `${corNM} NM a cada lado de la ruta. NO APTO PARA NAVEGACIÓN.` : `${corNM} NM either side of the route. NOT FOR NAVIGATION.`}]]></description><styleUrl>#corr</styleUrl><MultiGeometry>${corridorRings.map(r => dashPath(r, 1.5 * NM_M, 1 * NM_M).map(LS).join('')).join('')}</MultiGeometry></Placemark>\n`;
     return k + '</Document></kml>\n';
   }
   function airstripsKml(name, items, opt){
@@ -225,26 +232,27 @@
     Object.entries(SURF).forEach(([s, hex]) => { k += style('rw_' + s, '#ffffff', 'ff', 1.5, hex, 'ff'); });
     const withRw = items.filter(x => x.rw);
     if (opt.runways){
-      k += '<Folder><name>Runways</name>';
+      k += `<Folder><name>${tx('Runways', 'Pistas')}</name>`;
       withRw.forEach(({ r, rw, wp }) => {
         const b = brg(rw.a, rw.b), w = rw.width / 2, poly = [dest(rw.a, b - 90, w), dest(rw.b, b - 90, w), dest(rw.b, b + 90, w), dest(rw.a, b + 90, w)]; poly.push(poly[0]);
         const nm = `${wp} RWY ${rw.labA || ''}/${rw.labB || ''}${rw.labEst ? ' (est.)' : ''}`;
-        k += `<Placemark><name>${esc(nm)}</name><description><![CDATA[${esc(r.name)}: ${esc(rw.src)}. NOT FOR NAVIGATION.]]></description><styleUrl>#rw_${surfCat(r.surf) || 'unknown'}</styleUrl><Polygon><outerBoundaryIs><LinearRing><coordinates>${C5(poly)}</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>`;
-        k += `<Placemark><name>${esc(nm)} centerline</name><styleUrl>#cl</styleUrl>${LS([rw.a, rw.b])}</Placemark>`;
+        k += `<Placemark><name>${esc(nm)}</name><description><![CDATA[${esc(r.name)}: ${esc(rw.src)}. ${tx('NOT FOR NAVIGATION.', 'NO APTA PARA NAVEGACIÓN.')}]]></description><styleUrl>#rw_${surfCat(r.surf) || 'unknown'}</styleUrl><Polygon><outerBoundaryIs><LinearRing><coordinates>${C5(poly)}</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>`;
+        k += `<Placemark><name>${esc(nm)} ${tx('centerline', 'eje')}</name><styleUrl>#cl</styleUrl>${LS([rw.a, rw.b])}</Placemark>`;
         if (rw.labA) k += `<Placemark><name>${esc(rw.labA)}</name><styleUrl>#lbl</styleUrl><Point><coordinates>${C5([dest(rw.a, b + 180, 40)])}</coordinates></Point></Placemark>`;
         if (rw.labB) k += `<Placemark><name>${esc(rw.labB)}</name><styleUrl>#lbl</styleUrl><Point><coordinates>${C5([dest(rw.b, b, 40)])}</coordinates></Point></Placemark>`;
       });
       k += '</Folder>\n';
     }
     if (opt.patterns){
-      k += '<Folder><name>Traffic patterns</name>';
+      k += `<Folder><name>${tx('Traffic patterns', 'Circuitos de tránsito')}</name>`;
       withRw.forEach(({ r, rw, wp }) => {
         const tpa = tpaFt(r);
         patterns(rw).forEach(P => {
           const geom = [...P.lines.flatMap(l => dashes(l, 150, 100)), ...P.arrows.map(a => arrow(a)), ].map(LS).join('');   // v0.13: midfield dot = filled light-blue icon on the TPA point, not a hollow ring (Wayne)
           // v0.14: dark casing under the light-blue dashes for contrast on light map bases (Wayne)
           k += `<Placemark><name>${esc(wp + ' ' + P.name)}</name><styleUrl>#patcase</styleUrl><MultiGeometry>${geom}</MultiGeometry></Placemark>`;
-          k += `<Placemark><name>${esc(wp + ' ' + P.name)}</name><description><![CDATA[${esc(P.name)}, pattern width ${PAT_W} NM; dot abeam midfield. ${tpa != null ? `TPA assumed 1,000 ft AGL ≈ ${tpa.toLocaleString('en-US')} ft MSL` : 'AFAC gives no elevation'}. AFAC publishes no pattern direction. NOT FOR NAVIGATION.]]></description><styleUrl>#pat</styleUrl><MultiGeometry>${geom}</MultiGeometry></Placemark>`;
+          k += `<Placemark><name>${esc(wp + ' ' + P.name)}</name><description><![CDATA[${ES ? `${esc(P.name)}, ancho del circuito ${PAT_W} NM; punto al través de la mitad de la pista. ${tpa != null ? `Altitud de circuito (TPA) supuesta 1,000 ft AGL ≈ ${tpa.toLocaleString('en-US')} ft MSL` : 'La AFAC no da elevación'}. La AFAC no publica el sentido del circuito. NO APTO PARA NAVEGACIÓN.`
+            : `${esc(P.name)}, pattern width ${PAT_W} NM; dot abeam midfield. ${tpa != null ? `TPA assumed 1,000 ft AGL ≈ ${tpa.toLocaleString('en-US')} ft MSL` : 'AFAC gives no elevation'}. AFAC publishes no pattern direction. NOT FOR NAVIGATION.`}]]></description><styleUrl>#pat</styleUrl><MultiGeometry>${geom}</MultiGeometry></Placemark>`;
           P.dots.forEach(d => { if (tpa == null) k += `<Placemark><name></name><styleUrl>#tpa</styleUrl><Point><coordinates>${C5([d])}</coordinates></Point></Placemark>`; });
           if (tpa != null) P.dots.forEach(d => { k += `<Placemark><name>TPA ${tpa.toLocaleString('en-US')}'</name><styleUrl>#tpa</styleUrl><Point><coordinates>${C5([d])}</coordinates></Point></Placemark>`; });
         });
@@ -252,15 +260,15 @@
       k += '</Folder>\n';
     }
     if (opt.visuals){
-      k += `<Folder><name>Visual approaches (advisory)</name><description><![CDATA[${esc(VIS_CAUTION)}]]></description>`;
+      k += `<Folder><name>${tx('Visual approaches (advisory)', 'Aproximaciones visuales (orientativas)')}</name><description><![CDATA[${esc(VIS_CAUTION)}]]></description>`;
       withRw.filter(x => x.vis).forEach(({ rw, wp, vis }) => vis.filter(e => e.len).forEach(e => {
-        const ah = dest(e.out, e.crs, 0.2 * NM_M), nm = `${wp} RWY ${e.id}${rw.labEst ? ' (est.)' : ''} visual (advisory)`;
+        const ah = dest(e.out, e.crs, 0.2 * NM_M), nm = `${wp} RWY ${e.id}${rw.labEst ? ' (est.)' : ''} ${tx('visual (advisory)', 'visual (orientativa)')}`;
         const geom = [...dashes([e.thr, e.out], 400, 220), [dest(ah, e.crs + 150, 160), ah, dest(ah, e.crs - 150, 160)]].map(LS).join('');
-        const wtx = e.warn ? ` TERRAIN WITHIN ${Math.round(e.warn.c / 10) * 10} FT BELOW THE PATH ${e.warn.d} NM OUT.` : '';
+        const wtx = e.warn ? (ES ? ` TERRENO A MENOS DE ${Math.round(e.warn.c / 10) * 10} FT DEBAJO DE LA TRAYECTORIA A ${e.warn.d} NM.` : ` TERRAIN WITHIN ${Math.round(e.warn.c / 10) * 10} FT BELOW THE PATH ${e.warn.d} NM OUT.`) : '';
         k += `<Placemark><name>${esc(nm)}</name><styleUrl>#viscase</styleUrl><MultiGeometry>${geom}</MultiGeometry></Placemark>`;   // v0.15: dark casing under the amber (Wayne)
-        k += `<Placemark><name>${esc(nm)}</name><description><![CDATA[<b>${esc(nm)}</b><br>Final ${Math.round(e.crs) || 360}° true, 3.00°, TCH 50 ft, ${e.len} NM${e.state === 'cut' ? ' (shortened: terrain beyond)' : ''}.${wtx} Threshold elevation ${e.thrFt.toLocaleString('en-US')} ft (terrain model).<br><br><b>${esc(VIS_CAUTION)}</b>]]></description><styleUrl>#vis</styleUrl><MultiGeometry>${geom}</MultiGeometry></Placemark>`;
-        if (e.warn) k += `<Placemark><name>${esc(`${e.id} terrain ${e.warn.d}NM`)}</name><description><![CDATA[Terrain within ${Math.round(e.warn.c / 10) * 10} ft below the ${esc(nm)} path, ${e.warn.d} NM from the threshold (terrain model; no obstacles).<br><br><b>${esc(VIS_CAUTION)}</b>]]></description><styleUrl>#viswarn</styleUrl><Point><coordinates>${C5([e.warn.p])}</coordinates></Point></Placemark>`;
-        e.marks.forEach(f => { k += `<Placemark><name>${esc(`${e.id} ${Number.isInteger(f.d) ? f.d : f.d.toFixed(1)}NM ${f.alt.toLocaleString('en-US')}'`)}</name><description><![CDATA[${esc(nm)}: ${f.d} NM from the threshold, ${f.alt.toLocaleString('en-US')} ft MSL (${f.above.toLocaleString('en-US')} ft above the threshold).<br><br><b>${esc(VIS_CAUTION)}</b>]]></description><styleUrl>#visfix</styleUrl><Point><coordinates>${C5([f.p])}</coordinates></Point></Placemark>`; });
+        k += `<Placemark><name>${esc(nm)}</name><description><![CDATA[<b>${esc(nm)}</b><br>${ES ? `Final ${Math.round(e.crs) || 360}° verdadero, 3.00°, TCH 50 ft, ${e.len} NM${e.state === 'cut' ? ' (acortada: terreno más allá)' : ''}.${wtx} Elevación del umbral ${e.thrFt.toLocaleString('en-US')} ft (modelo de terreno).` : `Final ${Math.round(e.crs) || 360}° true, 3.00°, TCH 50 ft, ${e.len} NM${e.state === 'cut' ? ' (shortened: terrain beyond)' : ''}.${wtx} Threshold elevation ${e.thrFt.toLocaleString('en-US')} ft (terrain model).`}<br><br><b>${esc(VIS_CAUTION)}</b>]]></description><styleUrl>#vis</styleUrl><MultiGeometry>${geom}</MultiGeometry></Placemark>`;
+        if (e.warn) k += `<Placemark><name>${esc(`${e.id} ${tx('terrain', 'terreno')} ${e.warn.d}NM`)}</name><description><![CDATA[${ES ? `Terreno a menos de ${Math.round(e.warn.c / 10) * 10} ft debajo de la trayectoria ${esc(nm)}, a ${e.warn.d} NM del umbral (modelo de terreno; sin obstáculos).` : `Terrain within ${Math.round(e.warn.c / 10) * 10} ft below the ${esc(nm)} path, ${e.warn.d} NM from the threshold (terrain model; no obstacles).`}<br><br><b>${esc(VIS_CAUTION)}</b>]]></description><styleUrl>#viswarn</styleUrl><Point><coordinates>${C5([e.warn.p])}</coordinates></Point></Placemark>`;
+        e.marks.forEach(f => { k += `<Placemark><name>${esc(`${e.id} ${Number.isInteger(f.d) ? f.d : f.d.toFixed(1)}NM ${f.alt.toLocaleString('en-US')}'`)}</name><description><![CDATA[${ES ? `${esc(nm)}: a ${f.d} NM del umbral, ${f.alt.toLocaleString('en-US')} ft MSL (${f.above.toLocaleString('en-US')} ft sobre el umbral).` : `${esc(nm)}: ${f.d} NM from the threshold, ${f.alt.toLocaleString('en-US')} ft MSL (${f.above.toLocaleString('en-US')} ft above the threshold).`}<br><br><b>${esc(VIS_CAUTION)}</b>]]></description><styleUrl>#visfix</styleUrl><Point><coordinates>${C5([f.p])}</coordinates></Point></Placemark>`; });
       }));
       k += '</Folder>\n';
     }
@@ -271,11 +279,11 @@
     items.forEach(({ r, rw, wp }) => {
       const p = rw ? [(rw.a[0] + rw.b[0]) / 2, (rw.a[1] + rw.b[1]) / 2] : [r.lat, r.lon];
       const d = [`${r.des ? r.des + ' ' : ''}${r.name}, ${[r.muni, r.state].filter(Boolean).join(', ')}`,
-        r.elev != null ? `Elev ${ft(r.elev).toLocaleString('en-US')} ft (AFAC)` : 'Elev not in AFAC list',
+        r.elev != null ? `Elev ${ft(r.elev).toLocaleString('en-US')} ft (AFAC)` : tx('Elev not in AFAC list', 'Elev. no está en la lista de la AFAC'),
         (r.rwyArr || []).some(x => /^\d/.test(x)) ? `RWY ${r.rwyArr.map(pad2).join('/')}` : '', r.len ? `${ft(r.len).toLocaleString('en-US')} ft ${r.surf || ''}` : '',
-        `AFAC permit: ${r.status || 'not listed'}${r.terc ? '; open to third parties' : '; private use'}`,
-        `Waypoint at ${rw ? (rw.starter ? 'the midpoint of the runway estimated from AFAC figures' : 'the midpoint of the OpenStreetMap runway') : "AFAC's reference point"}.`,
-        `Source: AFAC list (${edition} edition). Planning Emergency Airstrips in Mexico. NOT FOR NAVIGATION.`].filter(Boolean).join('. ');
+        ES ? `Permiso AFAC: ${r.status || 'no indicado'}${r.terc ? '; abierta a terceros' : '; uso particular'}` : `AFAC permit: ${r.status || 'not listed'}${r.terc ? '; open to third parties' : '; private use'}`,
+        ES ? `Waypoint en ${rw ? (rw.starter ? 'la mitad de la pista estimada con las cifras de la AFAC' : 'la mitad de la pista de OpenStreetMap') : 'el punto de referencia de la AFAC'}.` : `Waypoint at ${rw ? (rw.starter ? 'the midpoint of the runway estimated from AFAC figures' : 'the midpoint of the OpenStreetMap runway') : "AFAC's reference point"}.`,
+        ES ? `Fuente: lista de la AFAC (edición ${edition}). Planeación de pistas de emergencia en México. NO APTO PARA NAVEGACIÓN.` : `Source: AFAC list (${edition} edition). Planning Emergency Airstrips in Mexico. NOT FOR NAVIGATION.`].filter(Boolean).join('. ');
       k += `<Placemark><name>${esc(wp)}</name><styleUrl>#wp</styleUrl><description>${esc(d)}</description><Point><coordinates>${p[1].toFixed(6)},${p[0].toFixed(6)},${r.elev != null ? r.elev : 0}</coordinates></Point></Placemark>\n`;
     });
     return k + '</Document></kml>\n';
@@ -283,35 +291,38 @@
   // v0.8: each waypoint's AFAC record as a one-page PDF in navdata/ (<wp>AFAC record.pdf), as Mexican Airstrips v0.66+ does for
   // <code>_AFAC — ForeFlight lists PDFs attached to pack waypoints and opens them from the waypoint (Wayne, 23-Nov-2026).
   // The PDF writer below is copied from Mexican Airstrips v0.94 (ASCII-only, Helvetica, WinAnsi) — keep the two in step.
-  const fmtD = iso => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ''); return m ? `${m[3]}-${MONTHS[+m[2] - 1]}-${m[1]}` : (iso || '-'); };
+  const fmtD = iso => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ''); return m ? `${m[3]}-${(ES ? MESES : MONTHS)[+m[2] - 1]}-${m[1]}` : (iso || '-'); };
   const card8 = b => ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round(((b % 360) + 360) % 360 / 45) % 8];
   function recordRows(x, a){
     const r = x.r.rec || {}, rw = x.rw, en = a.trEn || (v => v), dll = p => `${p[0].toFixed(6)}, ${p[1].toFixed(6)}`;
-    const both = v => !v ? '-' : en(v).toUpperCase() !== String(v).toUpperCase() ? `${en(v)} (${v})` : String(v);
+    const both = v => !v ? '-' : ES ? String(v) : en(v).toUpperCase() !== String(v).toUpperCase() ? `${en(v)} (${v})` : String(v);   // v0.19: Spanish record = AFAC's own words
     const w = rw ? [(rw.a[0] + rw.b[0]) / 2, (rw.a[1] + rw.b[1]) / 2] : [x.r.lat, x.r.lon], ref = [x.r.lat, x.r.lon];
-    const wsrc = rw ? (rw.starter ? 'midpoint of the runway estimated from AFAC figures' : 'midpoint of the OpenStreetMap runway') : 'AFAC reference point';
+    const wsrc = ES ? (rw ? (rw.starter ? 'mitad de la pista estimada con las cifras de la AFAC' : 'mitad de la pista de OpenStreetMap') : 'punto de referencia de la AFAC')
+      : rw ? (rw.starter ? 'midpoint of the runway estimated from AFAC figures' : 'midpoint of the OpenStreetMap runway') : 'AFAC reference point';
     const rwy = (r.rwy || []).filter(v => /^\d/.test(v));
     const tpa = r.elev_m != null ? Math.round((ft(r.elev_m) + 1000) / 10) * 10 : null;
-    const route = x.r.along != null ? `${Math.round(x.r.along)} NM along ${a.W.map(p => p.code).join(' ')}, ${x.r.xt < 0.5 ? 'on course' : x.r.xt.toFixed(0) + ' NM ' + (x.r.side === 'L' ? 'left' : 'right') + ' of course'}` : '';
+    const route = x.r.along != null ? (ES ? `NM ${Math.round(x.r.along)} de ${a.W.map(p => p.code).join(' ')}, ${x.r.xt < 0.5 ? 'sobre el curso' : x.r.xt.toFixed(0) + ' NM a la ' + (x.r.side === 'L' ? 'izquierda' : 'derecha') + ' del curso'}`
+      : `${Math.round(x.r.along)} NM along ${a.W.map(p => p.code).join(' ')}, ${x.r.xt < 0.5 ? 'on course' : x.r.xt.toFixed(0) + ' NM ' + (x.r.side === 'L' ? 'left' : 'right') + ' of course'}`) : '';
+    const C8ES = { N:'N', NE:'NE', E:'E', SE:'SE', S:'S', SW:'SO', W:'O', NW:'NO' };
     return [
-      ['Airstrip', (r.des ? r.des + ' - ' : '') + (r.name || x.r.name)],
-      ['Location', [r.muni, r.state].filter(Boolean).join(', ') + ', Mexico'],
+      [tx('Airstrip', 'Pista'), (r.des ? r.des + ' - ' : '') + (r.name || x.r.name)],
+      [tx('Location', 'Ubicación'), [r.muni, r.state].filter(Boolean).join(', ') + tx(', Mexico', ', México')],
       ['Waypoint', `${x.wp}  ${dll(w)}  (${wsrc})`],
-      route ? ['On the route', route] : null,
-      ['AFAC ref. point', r.lat != null ? `${dll(ref)}${r.datum ? ' (' + r.datum + ')' : ''}${rw ? `, ${Math.round(dist(w, ref)).toLocaleString('en-US')} m ${card8(brg(w, ref))} of the waypoint` : ''}` : 'none listed'],
-      ['Elevation', r.elev_m != null ? `${ft(r.elev_m).toLocaleString('en-US')} ft (${r.elev_m} m)` : 'not in AFAC\'s list'],
-      ['TPA', tpa != null ? `${tpa.toLocaleString('en-US')} ft (assumed 1,000 ft above field; AFAC publishes none)` : '-'],
-      ['Runway', rwy.length ? `${rwy.map(pad2).join('/')}${r.len_m ? `, ${r.len_m.toLocaleString('en-US')} x ${r.wid_m ?? '?'} m (${ft(r.len_m).toLocaleString('en-US')} x ${r.wid_m ? ft(r.wid_m) : '?'} ft)` : ''}` : (r.len_m ? `${r.len_m.toLocaleString('en-US')} x ${r.wid_m ?? '?'} m (${ft(r.len_m).toLocaleString('en-US')} ft)` : '-')],
-      ['Surface', both(r.surf)],
-      ['Operation', both(r.ops)],
-      ['Service', both(r.svc)],
-      ['Permit', `${r.file || '-'}, ${both(r.status)}${r.expires ? ', expires ' + fmtD(r.expires) : ''}`],
-      ['Coordinating apt.', r.coord_apt || '-'],
+      route ? [tx('On the route', 'En la ruta'), route] : null,
+      [tx('AFAC ref. point', 'Punto ref. AFAC'), r.lat != null ? `${dll(ref)}${r.datum ? ' (' + r.datum + ')' : ''}${rw ? (ES ? `, a ${Math.round(dist(w, ref)).toLocaleString('en-US')} m al ${C8ES[card8(brg(w, ref))]} del waypoint` : `, ${Math.round(dist(w, ref)).toLocaleString('en-US')} m ${card8(brg(w, ref))} of the waypoint`) : ''}` : tx('none listed', 'no indicado')],
+      [tx('Elevation', 'Elevación'), r.elev_m != null ? `${ft(r.elev_m).toLocaleString('en-US')} ft (${r.elev_m} m)` : tx('not in AFAC\'s list', 'no está en la lista de la AFAC')],
+      [tx('TPA', 'Alt. circuito'), tpa != null ? `${tpa.toLocaleString('en-US')} ft ${tx('(assumed 1,000 ft above field; AFAC publishes none)', '(supuesta 1,000 ft sobre el campo; la AFAC no publica una)')}` : '-'],
+      [tx('Runway', 'Pista (RWY)'), rwy.length ? `${rwy.map(pad2).join('/')}${r.len_m ? `, ${r.len_m.toLocaleString('en-US')} x ${r.wid_m ?? '?'} m (${ft(r.len_m).toLocaleString('en-US')} x ${r.wid_m ? ft(r.wid_m) : '?'} ft)` : ''}` : (r.len_m ? `${r.len_m.toLocaleString('en-US')} x ${r.wid_m ?? '?'} m (${ft(r.len_m).toLocaleString('en-US')} ft)` : '-')],
+      [tx('Surface', 'Superficie'), both(r.surf)],
+      [tx('Operation', 'Operación'), both(r.ops)],
+      [tx('Service', 'Servicio'), both(r.svc)],
+      [tx('Permit', 'Permiso'), `${r.file || '-'}, ${both(r.status)}${r.expires ? tx(', expires ', ', vence ') + fmtD(r.expires) : ''}`],
+      [tx('Coordinating apt.', 'Aerop. coordinador'), r.coord_apt || '-'],
       ['', ''],
-      ['Source', `AFAC "Aerodromos y helipuertos" list (gob.mx, ${a.edition || 'current'} edition). With thanks to airports.robrc.net.`],
-      ['Built', `${today()} with GeezerGeek Pilot Planning Emergency Airstrips in Mexico, emergency-airstrips-mexico.netlify.app`],
-      ['Snapshot', `AFAC's ${a.edition || 'current'} edition as of the build date; not updated after installing. Rebuild before each trip.`],
-      ['', 'NOT FOR NAVIGATION.'],
+      [tx('Source', 'Fuente'), ES ? `Lista "Aeródromos y helipuertos" de la AFAC (gob.mx, edición ${a.edition || 'vigente'}). Gracias a airports.robrc.net.` : `AFAC "Aerodromos y helipuertos" list (gob.mx, ${a.edition || 'current'} edition). With thanks to airports.robrc.net.`],
+      [tx('Built', 'Creado'), ES ? `${today()} con Planeación de pistas de emergencia en México de GeezerGeek Pilot, emergency-airstrips-mexico.netlify.app` : `${today()} with GeezerGeek Pilot Planning Emergency Airstrips in Mexico, emergency-airstrips-mexico.netlify.app`],
+      [tx('Snapshot', 'Vigencia'), ES ? `Edición ${a.edition || 'vigente'} de la AFAC a la fecha de creación; no se actualiza después de instalarlo. Vuelve a crearlo antes de cada viaje.` : `AFAC's ${a.edition || 'current'} edition as of the build date; not updated after installing. Rebuild before each trip.`],
+      ['', tx('NOT FOR NAVIGATION.', 'NO APTO PARA NAVEGACIÓN.')],
     ].filter(Boolean);
   }
   function recordPdf(wp, rows){
@@ -323,10 +334,10 @@
       if (ch === '(' || ch === ')' || ch === '\\') return '\\' + ch;
       if (c >= 32 && c < 127) return ch;
       if (c >= 160 && c <= 255) return '\\' + c.toString(8);
-      return ch === '—' || ch === '–' ? '-' : '?';
+      return ch === '—' || ch === '–' ? '-' : ch === '≈' ? '~' : '?';
     }).join('') + ')';
     const lines = [];
-    lines.push({ x: X1, t: `${wp} - AFAC record`, bold: true, size: 14 });
+    lines.push({ x: X1, t: `${wp} - ${tx('AFAC record', 'registro AFAC')}`, bold: true, size: 14 });
     lines.push({ gap: 6 });
     rows.forEach(([k, v]) => { wrap(v).forEach((l, i) => lines.push({ k: i ? '' : k, t: l })); });
     const H = 40 + lines.reduce((a, l) => a + (l.gap || (l.size ? 20 : LEAD)), 0);
@@ -371,14 +382,15 @@
   // build({ W, corridorRings, corridor, airstrips:[records], opt:{route, waypoints, runways, patterns, visuals}, edition, progress(text) })
   // → { url, name, abbr, notes:[…], counts }
   async function build(a){
+    ES = !!a.es; VIS_CAUTION = ES ? VIS_CAUTION_ES : VIS_CAUTION_EN;
     const opt = a.opt, codes = a.W.map(w => w.code.replace(/[^A-Z0-9]/gi, '').toUpperCase());
     const abbr = ('EMG_' + codes[0] + '_' + codes[codes.length - 1]).slice(0, 30);
-    const title = `${codes.join('-')} emergency airstrips`.slice(0, 60);
+    const title = (ES ? `${codes.join('-')} pistas de emergencia` : `${codes.join('-')} emergency airstrips`).slice(0, 60);
     const used = new Set(), items = a.airstrips.map(r => ({ r, wp: wpName(r, used) }));
     const notes = []; let est = 0, noRw = 0, visFail = 0;
     if (opt.runways || opt.patterns || opt.visuals || opt.waypoints){
       for (let i = 0; i < items.length; i++){
-        a.progress(`Runways: ${i + 1} of ${items.length} (${items[i].wp})…`);
+        a.progress(ES ? `Pistas: ${i + 1} de ${items.length} (${items[i].wp})…` : `Runways: ${i + 1} of ${items.length} (${items[i].wp})…`);
         items[i].rw = await runwayFor(items[i].r);
         if (!items[i].rw) noRw++; else if (items[i].rw.starter) est++;
       }
@@ -386,28 +398,30 @@
     if (opt.visuals){
       for (let i = 0; i < items.length; i++){
         if (!items[i].rw) continue;
-        a.progress(`Terrain check for the visual approaches: ${i + 1} of ${items.length}…`);
+        a.progress(ES ? `Revisión de terreno para las aproximaciones visuales: ${i + 1} de ${items.length}…` : `Terrain check for the visual approaches: ${i + 1} of ${items.length}…`);
         try { items[i].vis = await visuals(items[i].rw); } catch (e){ visFail++; }
       }
     }
-    if (est) notes.push(`${est} runway${est > 1 ? 's' : ''} estimated from AFAC's figures (no OpenStreetMap runway): may sit off the real airstrip.`);
-    if (noRw) notes.push(`${noRw} airstrip${noRw > 1 ? 's have' : ' has'} no runway numbers or length in AFAC's list, so only the waypoint is sent.`);
-    if (visFail) notes.push(`Terrain data didn't load for ${visFail} airstrip${visFail > 1 ? 's' : ''}, so no visual approaches for ${visFail > 1 ? 'them' : 'it'} (the terrain check can't be skipped).`);
+    const pl = (n, s, p) => n > 1 ? p : s;
+    if (est) notes.push(ES ? `${est} ${pl(est, 'pista estimada', 'pistas estimadas')} con las cifras de la AFAC (sin pista en OpenStreetMap): ${pl(est, 'puede quedar', 'pueden quedar')} fuera de la pista real.` : `${est} runway${est > 1 ? 's' : ''} estimated from AFAC's figures (no OpenStreetMap runway): may sit off the real airstrip.`);
+    if (noRw) notes.push(ES ? `${noRw} ${pl(noRw, 'pista no tiene', 'pistas no tienen')} números ni longitud de pista en la lista de la AFAC, así que solo se manda el waypoint.` : `${noRw} airstrip${noRw > 1 ? 's have' : ' has'} no runway numbers or length in AFAC's list, so only the waypoint is sent.`);
+    if (visFail) notes.push(ES ? `No cargaron los datos de terreno de ${visFail} ${pl(visFail, 'pista', 'pistas')}, así que no hay aproximaciones visuales para ${pl(visFail, 'ella', 'ellas')} (la revisión de terreno no se puede omitir).` : `Terrain data didn't load for ${visFail} airstrip${visFail > 1 ? 's' : ''}, so no visual approaches for ${visFail > 1 ? 'them' : 'it'} (the terrain check can't be skipped).`);
     const files = { [`${abbr}/manifest.json`]: JSON.stringify({ name: title, abbreviation: abbr, version: 1, effectiveDate: stamp(), organizationName: 'GeezerGeek Pilot Planning Emergency Airstrips in Mexico' }, null, 1) };
     if (opt.route) files[`${abbr}/layers/${abbr} Route.kml`] = routeKml(`${abbr} Route`, a.W, a);
     if (opt.corridor && a.corridorRings && a.corridorRings.length) files[`${abbr}/layers/${abbr} Corridor.kml`] = corridorKml(`${abbr} Corridor`, a.corridorRings, a.corridor);
     if ((opt.runways || opt.patterns || opt.visuals) && items.some(x => x.rw)) files[`${abbr}/layers/${abbr} Airstrips.kml`] = airstripsKml(`${abbr} Airstrips`, items, opt);
     if (opt.waypoints && items.length) files[`${abbr}/navdata/${abbr} Waypoints.kml`] = waypointsKml(`${abbr} Waypoints`, items, a.edition);
     if (opt.waypoints) items.forEach(x => { if (x.r.rec) files[`${abbr}/navdata/${x.wp}AFAC record.pdf`] = recordPdf(x.wp, recordRows(x, a)); });
-    if (Object.keys(files).length < 2) throw new Error('Nothing to send: tick at least one item.');
-    a.progress('Building the pack…');
+    if (Object.keys(files).length < 2) throw new Error(tx('Nothing to send: tick at least one item.', 'Nada que mandar: marca al menos una opción.'));
+    a.progress(tx('Building the pack…', 'Creando el paquete…'));
     const d = await b64deflate(JSON.stringify(files));
-    if (d.length > 300000) throw new Error('The pack is too big. Narrow the corridor, untick some airstrips or leave out the patterns or visual approaches.');
+    if (d.length > 300000) throw new Error(tx('The pack is too big. Narrow the corridor, untick some airstrips or leave out the patterns or visual approaches.', 'El paquete es demasiado grande. Angosta el corredor, desmarca algunas pistas o quita los circuitos o las aproximaciones visuales.'));
     const res = await fetch('/.netlify/functions/pack', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: d });
     const j = await res.json().catch(() => ({}));
-    if (!res.ok || !j.id) throw new Error(j.error || 'The pack server didn\'t answer (HTTP ' + res.status + ').');
+    if (!res.ok || !j.id) throw new Error(j.error || tx('The pack server didn\'t answer (HTTP ', 'El servidor de paquetes no respondió (HTTP ') + res.status + ').');
     return { url: `${location.origin}/.netlify/functions/pack/${j.id}/${abbr}.zip`, abbr, title, notes, wps: items.map(x => x.wp), built: today() };
   }
 
-  window.FF = { build, VIS_CAUTION };
+  // VIS_CAUTION for the page's caution pop-up, in the page's language
+  window.FF = { build, get VIS_CAUTION(){ return window.ggpLang && window.ggpLang.es ? VIS_CAUTION_ES : VIS_CAUTION_EN; } };
 })();
