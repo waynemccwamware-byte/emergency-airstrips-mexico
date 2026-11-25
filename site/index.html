@@ -244,11 +244,11 @@
     #sec2.big .list .cnt{ position:sticky; }
   }
 </style>
-<!-- GGP-FOOTER-CSS START v1.15 · 25-Nov-2026 · shared footer styles + language core, App Conventions §5b · master: Control Panel repo tools/ggp-footer -->
+<!-- GGP-FOOTER-CSS START v1.16 · 25-Nov-2026 · shared footer styles + language core, App Conventions §5b · master: Control Panel repo tools/ggp-footer -->
 <script>
 (function () {
   if (window.ggpLang) return;
-  var KEY = 'ggp-lang', I18N = true, SITES = ['geezer-geek-pilot-control-panel','weather-history-probability','digital-autopilots-quiz','tec-route-lookup','atc-chair-fly-trainer','days-flight-schedule','fuel-to-add','clearance-delivery','piston-ga-stats','claude-foreflight-primer','airfield-kml-builder','emergency-airstrips-mexico'];
+  var KEY = 'ggp-lang', I18N = true, SITES = ['geezer-geek-pilot-control-panel','weather-history-probability','digital-autopilots-quiz','tec-route-lookup','atc-chair-fly-trainer','days-flight-schedule','fuel-to-add','clearance-delivery','piston-ga-stats','claude-foreflight-primer','airfield-kml-builder','emergency-airstrips-mexico','tracking-piston-ga-accidents'];
   var q = null, saved = null, lang, explicit = false;
   try { q = new URLSearchParams(location.search).get('lang'); } catch (e) {}
   try { saved = localStorage.getItem(KEY); } catch (e) {}
@@ -488,7 +488,7 @@
 
 <div class="rig">
   <p class="fine" data-es="<b>Necesita conexión a internet: es una herramienta de planeación para usarse en tierra. En vuelo, confía solo en lo que hayas instalado en ForeFlight.</b> No apta para navegación. Solo una ayuda de planeación. Datos: la lista &quot;Aeródromos y helipuertos&quot; de la AFAC (gob.mx), la lista oficial de aeropuertos de México con posiciones de <a href=&quot;https://ourairports.com/data/&quot; target=&quot;_blank&quot; rel=&quot;noopener&quot;>OurAirports</a>, y radioayudas y aeropuertos de EE. UU. de OurAirports (dominio público). Gracias a <a href=&quot;https://airports.robrc.net/&quot; target=&quot;_blank&quot; rel=&quot;noopener&quot;>airports.robrc.net</a>, que abrió el camino a los datos de la AFAC. Revisa cada pista contra fuentes oficiales vigentes, reportes recientes de pilotos y tus propios ojos."><b>Needs an internet connection: a planning tool for use on the ground. In flight, rely only on what you've installed in ForeFlight.</b> Not for navigation. A planning aid only. Data: AFAC's "Aeródromos y helipuertos" list (gob.mx), Mexico's official airport list with positions from <a href="https://ourairports.com/data/" target="_blank" rel="noopener">OurAirports</a>, and OurAirports navaids and US airports (public domain). With thanks to <a href="https://airports.robrc.net/" target="_blank" rel="noopener">airports.robrc.net</a>, which showed the way to AFAC's data. Check every airstrip against current official sources, recent pilot reports and your own eyes.</p>
-  <!-- GGP-FOOTER START v1.15 · 25-Nov-2026 · shared footer, App Conventions §5a · master: Control Panel repo tools/ggp-footer -->
+  <!-- GGP-FOOTER START v1.16 · 25-Nov-2026 · shared footer, App Conventions §5a · master: Control Panel repo tools/ggp-footer -->
 <footer class="ggp-footer">
   <div class="ggp-back"><a href="https://geezer-geek-pilot-control-panel.netlify.app/" data-es="&larr; Volver a las apps de GeezerGeek Pilot">&larr; Back to GeezerGeek Pilot Apps</a></div>
   <div class="ggp-credit">Wayne McClelland (<a href="https://geezer-geek-pilot-control-panel.netlify.app/airports/" target="_blank" rel="noopener" data-es="aeropuertos visitados">airports visited</a>), <a href="https://youtube.com/@GeezerGeekPilot" target="_blank" rel="noopener">GeezerGeek Pilot</a>, <a href="https://geezer-geek-pilot-control-panel.netlify.app/reference" target="_blank" rel="noopener" data-es="Material de referencia">Reference Materials</a></div>
@@ -1014,7 +1014,7 @@
   load();
 })();
 </script>
-<!-- GGP-FOOTER-JS START v1.15 · 25-Nov-2026 · shared footer script, App Conventions §6a/§6b · master: Control Panel repo tools/ggp-footer -->
+<!-- GGP-FOOTER-JS START v1.16 · 25-Nov-2026 · shared footer script, App Conventions §6a/§6b · master: Control Panel repo tools/ggp-footer -->
 <script>
 (() => {
   if (window.__ggpFooter) return;
